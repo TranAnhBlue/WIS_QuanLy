@@ -1,0 +1,520 @@
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useState } from "react";
+import {
+  LayoutDashboard, MessagesSquare, Users, FileText, FileSignature, FolderKanban,
+  BadgeCheck, GraduationCap, FlaskConical, Scale, Leaf, UserCog, Target,
+  CheckCircle2, FileBox, Bell, Sparkles, Settings, Search, ChevronDown,
+  TrendingUp, TrendingDown, ArrowUpRight, AlertTriangle, Clock, Send,
+  Building2, ChevronsLeft, Circle, Award,
+} from "lucide-react";
+
+export const Route = createFileRoute("/")({
+  head: () => ({
+    meta: [
+      { title: "WIS — Hệ sinh thái xanh" },
+      { name: "description", content: "Hệ điều hành tập đoàn — quản trị Line 1, Line 2, Line 3 trên một nền tảng duy nhất." },
+      { property: "og:title", content: "WIS — Hệ sinh thái xanh" },
+      { property: "og:description", content: "Hệ điều hành tập đoàn — quản trị Line 1, Line 2, Line 3 trên một nền tảng duy nhất." },
+    ],
+  }),
+  component: DashboardPage,
+});
+
+type ModuleItem = { id: string; label: string; icon: typeof LayoutDashboard; badge?: string };
+
+const MODULES: { group: string; items: ModuleItem[] }[] = [
+  {
+    group: "Tổng quan",
+    items: [
+      { id: "dashboard", label: "Dashboard CEO", icon: LayoutDashboard },
+      { id: "chat", label: "Chat nội bộ", icon: MessagesSquare, badge: "12" },
+      { id: "notifications", label: "Thông báo", icon: Bell, badge: "5" },
+    ],
+  },
+  {
+    group: "Kinh doanh",
+    items: [
+      { id: "crm", label: "CRM & Khách hàng", icon: Users },
+      { id: "quotations", label: "Báo giá", icon: FileText },
+      { id: "contracts", label: "Hợp đồng", icon: FileSignature },
+      { id: "projects", label: "Dự án", icon: FolderKanban, badge: "27" },
+    ],
+  },
+  {
+    group: "Nghiệp vụ",
+    items: [
+      { id: "certifications", label: "Phạm vi tiêu chuẩn quy chuẩn", icon: BadgeCheck },
+      { id: "training", label: "Đào tạo", icon: GraduationCap },
+      { id: "science", label: "Nhiệm vụ KH", icon: FlaskConical },
+      { id: "legal", label: "Bảo hộ", icon: Scale },
+      { id: "vietgap", label: "VietGAP", icon: Leaf },
+    ],
+  },
+  {
+    group: "Tổ chức",
+    items: [
+      { id: "hrm", label: "Nhân sự", icon: UserCog },
+      { id: "kpi", label: "KPI", icon: Target },
+      { id: "rewards", label: "Tích thưởng", icon: Award, badge: "NEW" },
+      { id: "approvals", label: "Duyệt", icon: CheckCircle2, badge: "8" },
+      { id: "documents", label: "Tài liệu", icon: FileBox },
+    ],
+  },
+  {
+    group: "Hệ thống",
+    items: [
+      { id: "ai", label: "AI Assistant", icon: Sparkles },
+      { id: "settings", label: "Cài đặt", icon: Settings },
+    ],
+  },
+];
+
+const COMPANIES = [
+  { id: "group", label: "Toàn tập đoàn", color: "oklch(0.82 0.16 82)" },
+  { id: "sct", label: "Line 1", color: "oklch(0.72 0.17 155)" },
+  { id: "wcert", label: "Line 2", color: "oklch(0.7 0.15 230)" },
+  { id: "ict", label: "Line 3", color: "oklch(0.65 0.2 310)" },
+];
+
+const REVENUE = [
+  { company: "Line 1", value: 1965, delta: 8.1, trend: "up", desc: "Tư vấn & đào tạo • 10 nhân sự" },
+  { company: "Line 2", value: 4280, delta: 12.4, trend: "up", desc: "Phạm vi tiêu chuẩn quy chuẩn ISO • 15 nhân sự" },
+  { company: "Line 3", value: 1120, delta: -3.2, trend: "down", desc: "VietGAP & du lịch • 8 nhân sự" },
+];
+
+const KPIS = [
+  { label: "Lead mới", value: 47, sub: "+12 tuần này", icon: TrendingUp, tone: "info" },
+  { label: "Khách hàng mới", value: 18, sub: "+5 tuần này", icon: Users, tone: "success" },
+  { label: "Hợp đồng ký", value: 9, sub: "₫ 1.84 tỷ", icon: FileSignature, tone: "primary" },
+  { label: "Dự án đang chạy", value: 27, sub: "23 đúng tiến độ", icon: FolderKanban, tone: "info" },
+  { label: "Dự án quá hạn", value: 4, sub: "Cần xử lý gấp", icon: AlertTriangle, tone: "destructive" },
+  { label: "Task quá hạn", value: 8, sub: "Hôm nay", icon: Clock, tone: "warning" },
+];
+
+const PROJECTS = [
+  { code: "WC-2025-041", name: "ISO 9001 — Công ty TNHH Minh Phú", company: "Line 2", pm: "Nguyễn Văn A", progress: 78, status: "on-track", due: "12/07" },
+  { code: "WC-2025-038", name: "ISO 22000 — Vinamilk Tiên Sơn", company: "Line 2", pm: "Trần Thị B", progress: 45, status: "at-risk", due: "28/06" },
+  { code: "SC-2025-019", name: "Đào tạo Lead Auditor — Khóa 12", company: "Line 1", pm: "Lê Minh C", progress: 92, status: "on-track", due: "30/06" },
+  { code: "IC-2025-007", name: "VietGAP — HTX Nông sản Sơn La", company: "Line 3", pm: "Phạm Quốc D", progress: 22, status: "overdue", due: "20/06" },
+  { code: "WC-2025-035", name: "HACCP — Thủy sản Bình Định", company: "Line 2", pm: "Hoàng Thu E", progress: 64, status: "on-track", due: "05/08" },
+];
+
+const ACTIVITY = [
+  { time: "09:42", actor: "Nguyễn Văn A", action: "đã ký hợp đồng", target: "HĐ-2025-184", value: "₫ 285tr", tone: "success" },
+  { time: "09:18", actor: "Trần Thị B", action: "tạo báo giá mới", target: "BG-2025-072", value: null, tone: "info" },
+  { time: "08:55", actor: "Hệ thống", action: "cảnh báo dự án quá hạn", target: "IC-2025-007", value: null, tone: "destructive" },
+  { time: "08:30", actor: "Lê Minh C", action: "hoàn thành đánh giá GĐ1", target: "WC-2025-038", value: null, tone: "success" },
+  { time: "07:55", actor: "Phạm Quốc D", action: "yêu cầu duyệt chi phí", target: "₫ 12.5tr", value: null, tone: "warning" },
+];
+
+function DashboardPage() {
+  const [collapsed, setCollapsed] = useState(false);
+  const [active, setActive] = useState("dashboard");
+  const [company, setCompany] = useState("group");
+
+  return (
+    <div className="flex min-h-screen text-foreground">
+      {/* Sidebar */}
+      <aside
+        className={`${collapsed ? "w-[72px]" : "w-[260px]"} shrink-0 border-r border-sidebar-border bg-sidebar transition-all duration-300 flex flex-col sticky top-0 h-screen`}
+      >
+        <div className="flex items-center gap-3 px-4 h-16 border-b border-sidebar-border">
+          <div className="size-9 shrink-0 grid place-items-center rounded-md bg-primary text-primary-foreground font-display font-bold text-lg">
+            W
+          </div>
+          {!collapsed && (
+            <div className="min-w-0 flex-1">
+              <div className="font-display font-semibold text-sm leading-tight truncate">WIS</div>
+              <div className="text-[10px] uppercase tracking-wider text-muted-foreground truncate">Hệ sinh thái xanh</div>
+            </div>
+          )}
+          {!collapsed && (
+            <button
+              onClick={() => setCollapsed(true)}
+              className="text-muted-foreground hover:text-foreground transition"
+              aria-label="Thu gọn"
+            >
+              <ChevronsLeft className="size-4" />
+            </button>
+          )}
+        </div>
+
+        {collapsed && (
+          <button
+            onClick={() => setCollapsed(false)}
+            className="mx-auto mt-2 size-8 grid place-items-center rounded-md text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
+            aria-label="Mở rộng"
+          >
+            <ChevronsLeft className="size-4 rotate-180" />
+          </button>
+        )}
+
+        <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-4">
+          {MODULES.map((group) => (
+            <div key={group.group}>
+              {!collapsed && (
+                <div className="px-3 mb-1.5 text-[10px] uppercase tracking-wider text-muted-foreground/70 font-medium">
+                  {group.group}
+                </div>
+              )}
+              <ul className="space-y-0.5">
+                {group.items.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = active === item.id;
+                  const routeMap: Record<string, string> = { chat: "/chat", training: "/training", hrm: "/hr", rewards: "/rewards", certifications: "/certifications", projects: "/projects", quotations: "/quotations", contracts: "/contracts" };
+                  const to = routeMap[item.id];
+                  const cls = `w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm transition relative ${
+                    isActive
+                      ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                      : "text-sidebar-foreground/80 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+                  }`;
+                  const inner = (
+                    <>
+                      {isActive && (
+                        <span className="absolute left-0 top-1.5 bottom-1.5 w-0.5 bg-primary rounded-r" />
+                      )}
+                      <Icon className="size-4 shrink-0" />
+                      {!collapsed && (
+                        <>
+                          <span className="flex-1 text-left truncate">{item.label}</span>
+                          {item.badge && (
+                            <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${
+                              isActive ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                            }`}>
+                              {item.badge}
+                            </span>
+                          )}
+                        </>
+                      )}
+                    </>
+                  );
+                  return (
+                    <li key={item.id}>
+                      {to ? (
+                        <Link to={to} className={cls} title={collapsed ? item.label : undefined}>
+                          {inner}
+                        </Link>
+                      ) : (
+                        <button
+                          onClick={() => setActive(item.id)}
+                          className={cls}
+                          title={collapsed ? item.label : undefined}
+                        >
+                          {inner}
+                        </button>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ))}
+        </nav>
+
+        <div className={`border-t border-sidebar-border p-3 ${collapsed ? "flex justify-center" : ""}`}>
+          <div className={`flex items-center gap-3 ${collapsed ? "" : "w-full"}`}>
+            <div className="size-8 shrink-0 rounded-full bg-gradient-to-br from-primary to-chart-2 grid place-items-center font-display font-semibold text-primary-foreground text-xs">
+              LA
+            </div>
+            {!collapsed && (
+              <div className="min-w-0 flex-1">
+                <div className="text-xs font-medium truncate">Nguyễn Thị Lan Anh</div>
+                <div className="text-[10px] text-muted-foreground truncate">Group CEO</div>
+              </div>
+            )}
+            {!collapsed && (
+              <span className="size-2 rounded-full bg-success animate-pulse-dot" aria-label="online" />
+            )}
+          </div>
+        </div>
+      </aside>
+
+      {/* Main */}
+      <div className="flex-1 min-w-0 flex flex-col">
+        {/* Topbar */}
+        <header className="h-16 border-b border-border bg-background/80 backdrop-blur sticky top-0 z-10 flex items-center gap-4 px-6">
+          <div className="flex items-center gap-2 text-sm">
+            <Building2 className="size-4 text-muted-foreground" />
+            <span className="text-muted-foreground">Tập đoàn</span>
+            <span className="text-muted-foreground">/</span>
+            <span className="font-medium">Dashboard CEO</span>
+          </div>
+
+          <div className="flex-1 max-w-md mx-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+              <input
+                placeholder="Tìm khách hàng, dự án, hợp đồng…"
+                className="w-full h-9 pl-9 pr-16 rounded-md bg-surface border border-border text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+              />
+              <kbd className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-mono text-muted-foreground border border-border rounded px-1.5 py-0.5">⌘K</kbd>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-1 p-1 rounded-md bg-surface border border-border">
+            {COMPANIES.map((c) => (
+              <button
+                key={c.id}
+                onClick={() => setCompany(c.id)}
+                className={`px-3 py-1 text-xs font-medium rounded transition ${
+                  company === c.id ? "bg-surface-2 text-foreground" : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {company === c.id && (
+                  <span className="inline-block size-1.5 rounded-full mr-1.5" style={{ background: c.color }} />
+                )}
+                {c.label}
+              </button>
+            ))}
+          </div>
+
+          <button className="relative size-9 grid place-items-center rounded-md hover:bg-surface transition">
+            <Bell className="size-4" />
+            <span className="absolute top-1.5 right-1.5 size-2 rounded-full bg-destructive" />
+          </button>
+        </header>
+
+        {/* Content */}
+        <main className="flex-1 p-6 space-y-6">
+          {/* Page heading */}
+          <div className="flex items-end justify-between gap-4 flex-wrap animate-count-up">
+            <div>
+              <div className="text-xs uppercase tracking-wider text-muted-foreground font-medium mb-1">
+                Thứ sáu, 26 tháng 6, 2026 • 09:47
+              </div>
+              <h1 className="font-display text-3xl font-semibold tracking-tight">
+                Chào buổi sáng, <span className="text-primary">anh Hùng</span>
+              </h1>
+              <p className="text-sm text-muted-foreground mt-1">
+                Toàn tập đoàn hôm nay: <span className="text-success font-medium">+₫ 285tr</span> doanh thu ký mới • <span className="text-warning font-medium">4</span> dự án cần can thiệp
+              </p>
+            </div>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Circle className="size-2 fill-success text-success animate-pulse-dot" />
+              Dữ liệu cập nhật real-time
+            </div>
+          </div>
+
+          {/* Revenue per company */}
+          <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {REVENUE.map((r, idx) => (
+              <div
+                key={r.company}
+                className="kpi-tile kpi-tile-hover p-5 animate-count-up"
+                style={{ animationDelay: `${idx * 80}ms` }}
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <span className="size-2 rounded-full" style={{ background: COMPANIES[idx + 1].color }} />
+                    <span className="text-sm font-medium">{r.company}</span>
+                  </div>
+                  <span className={`flex items-center gap-1 text-xs font-mono px-2 py-0.5 rounded ${
+                    r.trend === "up" ? "text-success bg-success/10" : "text-destructive bg-destructive/10"
+                  }`}>
+                    {r.trend === "up" ? <TrendingUp className="size-3" /> : <TrendingDown className="size-3" />}
+                    {r.delta > 0 ? "+" : ""}{r.delta}%
+                  </span>
+                </div>
+                <div className="flex items-baseline gap-1.5">
+                  <span className="font-display text-3xl font-semibold tabular-nums">{r.value.toLocaleString("vi-VN")}</span>
+                  <span className="text-sm text-muted-foreground">triệu ₫</span>
+                </div>
+                <div className="text-xs text-muted-foreground mt-2">{r.desc}</div>
+                {/* Mini sparkline */}
+                <svg viewBox="0 0 100 24" className="w-full h-6 mt-3" preserveAspectRatio="none">
+                  <polyline
+                    points={r.trend === "up"
+                      ? "0,20 12,18 24,16 36,14 48,12 60,10 72,7 84,5 100,3"
+                      : "0,8 12,10 24,9 36,13 48,12 60,15 72,14 84,18 100,20"}
+                    fill="none"
+                    stroke={COMPANIES[idx + 1].color}
+                    strokeWidth="1.5"
+                  />
+                </svg>
+              </div>
+            ))}
+          </section>
+
+          {/* KPI tiles */}
+          <section className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+            {KPIS.map((k, idx) => {
+              const Icon = k.icon;
+              const toneClass = {
+                info: "text-info",
+                success: "text-success",
+                primary: "text-primary",
+                warning: "text-warning",
+                destructive: "text-destructive",
+              }[k.tone];
+              return (
+                <div
+                  key={k.label}
+                  className="kpi-tile kpi-tile-hover p-4 animate-count-up"
+                  style={{ animationDelay: `${240 + idx * 50}ms` }}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <Icon className={`size-4 ${toneClass}`} />
+                    <ArrowUpRight className="size-3 text-muted-foreground/50" />
+                  </div>
+                  <div className="font-display text-2xl font-semibold tabular-nums">{k.value}</div>
+                  <div className="text-[11px] text-foreground/80 font-medium mt-1">{k.label}</div>
+                  <div className="text-[10px] text-muted-foreground mt-0.5">{k.sub}</div>
+                </div>
+              );
+            })}
+          </section>
+
+          {/* Two-column: Projects + AI/Activity */}
+          <section className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            {/* Projects table */}
+            <div className="surface-card lg:col-span-2 overflow-hidden">
+              <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+                <div>
+                  <h2 className="font-display font-semibold">Dự án trọng điểm</h2>
+                  <p className="text-xs text-muted-foreground mt-0.5">5/27 dự án đang theo dõi cấp CEO</p>
+                </div>
+                <button className="text-xs text-primary hover:underline flex items-center gap-1">
+                  Xem tất cả <ArrowUpRight className="size-3" />
+                </button>
+              </div>
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-[11px] uppercase tracking-wider text-muted-foreground border-b border-border">
+                    <th className="text-left font-medium px-5 py-2.5">Mã / Tên</th>
+                    <th className="text-left font-medium py-2.5">PM</th>
+                    <th className="text-left font-medium py-2.5 w-40">Tiến độ</th>
+                    <th className="text-left font-medium py-2.5">Trạng thái</th>
+                    <th className="text-right font-medium px-5 py-2.5">Deadline</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {PROJECTS.map((p) => {
+                    const statusMap = {
+                      "on-track": { label: "Đúng tiến độ", cls: "bg-success/10 text-success" },
+                      "at-risk": { label: "Rủi ro", cls: "bg-warning/10 text-warning" },
+                      "overdue": { label: "Quá hạn", cls: "bg-destructive/10 text-destructive" },
+                    }[p.status]!;
+                    return (
+                      <tr key={p.code} className="border-b border-border/50 last:border-0 hover:bg-surface/50 transition">
+                        <td className="px-5 py-3">
+                          <div className="font-mono text-[11px] text-muted-foreground">{p.code}</div>
+                          <div className="font-medium text-sm mt-0.5">{p.name}</div>
+                          <div className="text-[11px] text-muted-foreground mt-0.5">{p.company}</div>
+                        </td>
+                        <td className="py-3 text-xs text-muted-foreground">{p.pm}</td>
+                        <td className="py-3">
+                          <div className="flex items-center gap-2">
+                            <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
+                              <div
+                                className={`h-full rounded-full ${
+                                  p.status === "overdue" ? "bg-destructive" : p.status === "at-risk" ? "bg-warning" : "bg-success"
+                                }`}
+                                style={{ width: `${p.progress}%` }}
+                              />
+                            </div>
+                            <span className="text-[11px] font-mono tabular-nums text-muted-foreground w-8">{p.progress}%</span>
+                          </div>
+                        </td>
+                        <td className="py-3">
+                          <span className={`inline-block text-[10px] font-medium px-2 py-0.5 rounded ${statusMap.cls}`}>
+                            {statusMap.label}
+                          </span>
+                        </td>
+                        <td className="px-5 py-3 text-right text-xs font-mono tabular-nums text-muted-foreground">{p.due}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* AI Assistant */}
+            <div className="surface-card overflow-hidden flex flex-col">
+              <div className="px-5 py-4 border-b border-border flex items-center gap-2">
+                <div className="size-7 rounded-md bg-gradient-to-br from-primary to-chart-5 grid place-items-center">
+                  <Sparkles className="size-3.5 text-primary-foreground" />
+                </div>
+                <div className="flex-1">
+                  <h2 className="font-display font-semibold text-sm">CEO Assistant</h2>
+                  <p className="text-[10px] text-muted-foreground">Truy vấn dữ liệu tập đoàn bằng tiếng Việt</p>
+                </div>
+                <span className="size-1.5 rounded-full bg-success animate-pulse-dot" />
+              </div>
+
+              <div className="flex-1 p-4 space-y-3 text-sm">
+                <div className="text-muted-foreground text-xs">Câu hỏi gợi ý hôm nay:</div>
+                {[
+                  "Công ty nào doanh thu thấp nhất tháng này?",
+                  "Có bao nhiêu dự án ISO đang trễ?",
+                  "Khách hàng nào sắp tái chứng nhận trong 30 ngày?",
+                  "KPI phòng ban nào thấp nhất quý này?",
+                ].map((q) => (
+                  <button
+                    key={q}
+                    className="w-full text-left text-xs px-3 py-2.5 rounded-md bg-surface border border-border hover:border-primary/40 hover:bg-surface-2 transition group flex items-start gap-2"
+                  >
+                    <span className="text-primary mt-0.5">▸</span>
+                    <span className="flex-1">{q}</span>
+                  </button>
+                ))}
+              </div>
+
+              <div className="p-3 border-t border-border">
+                <div className="relative">
+                  <input
+                    placeholder="Hỏi bất kỳ điều gì về tập đoàn…"
+                    className="w-full h-10 pl-3 pr-10 rounded-md bg-surface border border-border text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                  <button className="absolute right-1.5 top-1.5 size-7 grid place-items-center rounded bg-primary text-primary-foreground hover:opacity-90 transition">
+                    <Send className="size-3.5" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* Activity feed */}
+          <section className="surface-card">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+              <div>
+                <h2 className="font-display font-semibold">Hoạt động hôm nay</h2>
+                <p className="text-xs text-muted-foreground mt-0.5">Cập nhật theo thời gian thực từ 18 module</p>
+              </div>
+              <button className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1">
+                Lọc <ChevronDown className="size-3" />
+              </button>
+            </div>
+            <ul className="divide-y divide-border/50">
+              {ACTIVITY.map((a, i) => {
+                const toneClass = {
+                  success: "bg-success",
+                  info: "bg-info",
+                  warning: "bg-warning",
+                  destructive: "bg-destructive",
+                }[a.tone];
+                return (
+                  <li key={i} className="px-5 py-3 flex items-center gap-4 hover:bg-surface/50 transition">
+                    <div className="font-mono text-[11px] text-muted-foreground tabular-nums w-12">{a.time}</div>
+                    <span className={`size-2 rounded-full shrink-0 ${toneClass}`} />
+                    <div className="flex-1 text-sm min-w-0">
+                      <span className="font-medium">{a.actor}</span>
+                      <span className="text-muted-foreground"> {a.action} </span>
+                      <span className="font-mono text-xs text-foreground/80">{a.target}</span>
+                    </div>
+                    {a.value && (
+                      <span className="text-xs font-mono text-success tabular-nums">{a.value}</span>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+
+          <footer className="text-[11px] text-muted-foreground text-center py-4">
+            WIS v0.1 — Prototype • Hệ sinh thái xanh • Phiên bản dành cho phê duyệt thiết kế
+          </footer>
+        </main>
+      </div>
+    </div>
+  );
+}
