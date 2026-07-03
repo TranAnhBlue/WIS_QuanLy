@@ -1,12 +1,13 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useState, useEffect } from "react";
 import {
   LayoutDashboard, MessagesSquare, Users, FileText, FileSignature, FolderKanban,
   BadgeCheck, GraduationCap, FlaskConical, Scale, Leaf, UserCog, Target,
   CheckCircle2, FileBox, Bell, Sparkles, Settings, Search, ChevronDown,
   TrendingUp, TrendingDown, ArrowUpRight, AlertTriangle, Clock, Send,
-  Building2, ChevronsLeft, Circle, Award,
+  Building2, ChevronsLeft, Circle, Award, LogOut, User as UserIcon, Shield,
 } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -108,9 +109,50 @@ const ACTIVITY = [
 ];
 
 function DashboardPage() {
+  const navigate = useNavigate();
+  const { session, user, isAuthenticated, isLoading, logout } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
   const [active, setActive] = useState("dashboard");
   const [company, setCompany] = useState("group");
+  const [showUserMenu, setShowUserMenu] = useState(false);
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      navigate({ to: "/login" });
+    }
+  }, [isLoading, isAuthenticated, navigate]);
+
+  // Show loading state
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Đang tải...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Don't render if not authenticated
+  if (!isAuthenticated || !user) {
+    return null;
+  }
+
+  const handleLogout = () => {
+    logout();
+    navigate({ to: "/login" });
+  };
+
+  const getInitials = (name: string) => {
+    return name
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2);
+  };
 
   return (
     <div className="flex min-h-screen text-foreground">
@@ -212,18 +254,60 @@ function DashboardPage() {
         </nav>
 
         <div className={`border-t border-sidebar-border p-3 ${collapsed ? "flex justify-center" : ""}`}>
-          <div className={`flex items-center gap-3 ${collapsed ? "" : "w-full"}`}>
-            <div className="size-8 shrink-0 rounded-full bg-gradient-to-br from-primary to-chart-2 grid place-items-center font-display font-semibold text-primary-foreground text-xs">
-              LA
-            </div>
-            {!collapsed && (
-              <div className="min-w-0 flex-1">
-                <div className="text-xs font-medium truncate">Nguyễn Thị Lan Anh</div>
-                <div className="text-[10px] text-muted-foreground truncate">Group CEO</div>
+          <div className="relative">
+            <button
+              onClick={() => setShowUserMenu(!showUserMenu)}
+              className={`flex items-center gap-3 w-full hover:bg-sidebar-accent rounded-md p-1 transition ${collapsed ? "" : ""}`}
+            >
+              <div className="size-8 shrink-0 rounded-full bg-gradient-to-br from-primary to-chart-2 grid place-items-center font-display font-semibold text-primary-foreground text-xs">
+                {getInitials(user.name)}
               </div>
-            )}
-            {!collapsed && (
-              <span className="size-2 rounded-full bg-success animate-pulse-dot" aria-label="online" />
+              {!collapsed && (
+                <div className="min-w-0 flex-1">
+                  <div className="text-xs font-medium truncate">{user.name}</div>
+                  <div className="text-[10px] text-muted-foreground truncate">{user.role === "admin" ? "Administrator" : user.role === "ceo" ? "Group CEO" : user.department}</div>
+                </div>
+              )}
+              {!collapsed && (
+                <span className="size-2 rounded-full bg-success animate-pulse-dot" aria-label="online" />
+              )}
+            </button>
+
+            {/* User dropdown menu */}
+            {showUserMenu && !collapsed && (
+              <div className="absolute bottom-full left-0 right-0 mb-2 bg-popover border border-border rounded-md shadow-lg overflow-hidden">
+                <div className="p-3 border-b border-border">
+                  <div className="text-sm font-medium">{user.name}</div>
+                  <div className="text-xs text-muted-foreground">{user.email}</div>
+                </div>
+                <div className="py-1">
+                  <Link
+                    to="/profile"
+                    className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent transition"
+                    onClick={() => setShowUserMenu(false)}
+                  >
+                    <UserIcon className="h-4 w-4" />
+                    Thông tin cá nhân
+                  </Link>
+                  {session?.role === "admin" && (
+                    <Link
+                      to="/users"
+                      className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent transition"
+                      onClick={() => setShowUserMenu(false)}
+                    >
+                      <Shield className="h-4 w-4" />
+                      Quản lý người dùng
+                    </Link>
+                  )}
+                  <button
+                    onClick={handleLogout}
+                    className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent transition w-full text-left text-destructive"
+                  >
+                    <LogOut className="h-4 w-4" />
+                    Đăng xuất
+                  </button>
+                </div>
+              </div>
             )}
           </div>
         </div>
@@ -283,7 +367,7 @@ function DashboardPage() {
                 Thứ sáu, 26 tháng 6, 2026 • 09:47
               </div>
               <h1 className="font-display text-3xl font-semibold tracking-tight">
-                Chào buổi sáng, <span className="text-primary">anh Hùng</span>
+                Chào buổi sáng, <span className="text-primary">{user.name.split(" ")[user.name.split(" ").length - 1]}</span>
               </h1>
               <p className="text-sm text-muted-foreground mt-1">
                 Toàn tập đoàn hôm nay: <span className="text-success font-medium">+₫ 285tr</span> doanh thu ký mới • <span className="text-warning font-medium">4</span> dự án cần can thiệp

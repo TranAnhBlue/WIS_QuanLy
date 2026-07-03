@@ -9,10 +9,14 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as UsersRouteImport } from './routes/users'
 import { Route as TrainingRouteImport } from './routes/training'
 import { Route as RewardRouteImport } from './routes/reward'
+import { Route as RegisterRouteImport } from './routes/register'
 import { Route as QuotationsRouteImport } from './routes/quotations'
 import { Route as ProjectsRouteImport } from './routes/projects'
+import { Route as ProfileRouteImport } from './routes/profile'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as HrRouteImport } from './routes/hr'
 import { Route as ContractsRouteImport } from './routes/contracts'
 import { Route as ChatRouteImport } from './routes/chat'
@@ -20,6 +24,11 @@ import { Route as CertificationsRouteImport } from './routes/certifications'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as TrainingCourseIdRouteImport } from './routes/training.$courseId'
 
+const UsersRoute = UsersRouteImport.update({
+  id: '/users',
+  path: '/users',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const TrainingRoute = TrainingRouteImport.update({
   id: '/training',
   path: '/training',
@@ -30,6 +39,11 @@ const RewardRoute = RewardRouteImport.update({
   path: '/reward',
   getParentRoute: () => rootRouteImport,
 } as any)
+const RegisterRoute = RegisterRouteImport.update({
+  id: '/register',
+  path: '/register',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const QuotationsRoute = QuotationsRouteImport.update({
   id: '/quotations',
   path: '/quotations',
@@ -38,6 +52,16 @@ const QuotationsRoute = QuotationsRouteImport.update({
 const ProjectsRoute = ProjectsRouteImport.update({
   id: '/projects',
   path: '/projects',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProfileRoute = ProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
 const HrRoute = HrRouteImport.update({
@@ -77,10 +101,14 @@ export interface FileRoutesByFullPath {
   '/chat': typeof ChatRoute
   '/contracts': typeof ContractsRoute
   '/hr': typeof HrRoute
+  '/login': typeof LoginRoute
+  '/profile': typeof ProfileRoute
   '/projects': typeof ProjectsRoute
   '/quotations': typeof QuotationsRoute
+  '/register': typeof RegisterRoute
   '/reward': typeof RewardRoute
   '/training': typeof TrainingRouteWithChildren
+  '/users': typeof UsersRoute
   '/training/$courseId': typeof TrainingCourseIdRoute
 }
 export interface FileRoutesByTo {
@@ -89,10 +117,14 @@ export interface FileRoutesByTo {
   '/chat': typeof ChatRoute
   '/contracts': typeof ContractsRoute
   '/hr': typeof HrRoute
+  '/login': typeof LoginRoute
+  '/profile': typeof ProfileRoute
   '/projects': typeof ProjectsRoute
   '/quotations': typeof QuotationsRoute
+  '/register': typeof RegisterRoute
   '/reward': typeof RewardRoute
   '/training': typeof TrainingRouteWithChildren
+  '/users': typeof UsersRoute
   '/training/$courseId': typeof TrainingCourseIdRoute
 }
 export interface FileRoutesById {
@@ -102,10 +134,14 @@ export interface FileRoutesById {
   '/chat': typeof ChatRoute
   '/contracts': typeof ContractsRoute
   '/hr': typeof HrRoute
+  '/login': typeof LoginRoute
+  '/profile': typeof ProfileRoute
   '/projects': typeof ProjectsRoute
   '/quotations': typeof QuotationsRoute
+  '/register': typeof RegisterRoute
   '/reward': typeof RewardRoute
   '/training': typeof TrainingRouteWithChildren
+  '/users': typeof UsersRoute
   '/training/$courseId': typeof TrainingCourseIdRoute
 }
 export interface FileRouteTypes {
@@ -116,10 +152,14 @@ export interface FileRouteTypes {
     | '/chat'
     | '/contracts'
     | '/hr'
+    | '/login'
+    | '/profile'
     | '/projects'
     | '/quotations'
+    | '/register'
     | '/reward'
     | '/training'
+    | '/users'
     | '/training/$courseId'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -128,10 +168,14 @@ export interface FileRouteTypes {
     | '/chat'
     | '/contracts'
     | '/hr'
+    | '/login'
+    | '/profile'
     | '/projects'
     | '/quotations'
+    | '/register'
     | '/reward'
     | '/training'
+    | '/users'
     | '/training/$courseId'
   id:
     | '__root__'
@@ -140,10 +184,14 @@ export interface FileRouteTypes {
     | '/chat'
     | '/contracts'
     | '/hr'
+    | '/login'
+    | '/profile'
     | '/projects'
     | '/quotations'
+    | '/register'
     | '/reward'
     | '/training'
+    | '/users'
     | '/training/$courseId'
   fileRoutesById: FileRoutesById
 }
@@ -153,14 +201,25 @@ export interface RootRouteChildren {
   ChatRoute: typeof ChatRoute
   ContractsRoute: typeof ContractsRoute
   HrRoute: typeof HrRoute
+  LoginRoute: typeof LoginRoute
+  ProfileRoute: typeof ProfileRoute
   ProjectsRoute: typeof ProjectsRoute
   QuotationsRoute: typeof QuotationsRoute
+  RegisterRoute: typeof RegisterRoute
   RewardRoute: typeof RewardRoute
   TrainingRoute: typeof TrainingRouteWithChildren
+  UsersRoute: typeof UsersRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/users': {
+      id: '/users'
+      path: '/users'
+      fullPath: '/users'
+      preLoaderRoute: typeof UsersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/training': {
       id: '/training'
       path: '/training'
@@ -175,6 +234,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RewardRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/register': {
+      id: '/register'
+      path: '/register'
+      fullPath: '/register'
+      preLoaderRoute: typeof RegisterRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/quotations': {
       id: '/quotations'
       path: '/quotations'
@@ -187,6 +253,20 @@ declare module '@tanstack/react-router' {
       path: '/projects'
       fullPath: '/projects'
       preLoaderRoute: typeof ProjectsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/profile': {
+      id: '/profile'
+      path: '/profile'
+      fullPath: '/profile'
+      preLoaderRoute: typeof ProfileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/hr': {
@@ -252,10 +332,14 @@ const rootRouteChildren: RootRouteChildren = {
   ChatRoute: ChatRoute,
   ContractsRoute: ContractsRoute,
   HrRoute: HrRoute,
+  LoginRoute: LoginRoute,
+  ProfileRoute: ProfileRoute,
   ProjectsRoute: ProjectsRoute,
   QuotationsRoute: QuotationsRoute,
+  RegisterRoute: RegisterRoute,
   RewardRoute: RewardRoute,
   TrainingRoute: TrainingRouteWithChildren,
+  UsersRoute: UsersRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
