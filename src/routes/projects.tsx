@@ -4,6 +4,7 @@ import {
   FolderKanban, ArrowLeft, Search, Plus, Filter, Calendar, User,
   CheckCircle2, AlertTriangle, Clock, X, Pencil, Trash2,
 } from "lucide-react";
+import { message } from "antd";
 import { ConfirmDialog } from "./certifications";
 
 export const Route = createFileRoute("/projects")({
@@ -86,10 +87,18 @@ function ProjectsPage() {
   ];
 
   function save(p: Project) {
+    const isUpdate = items.some(x => x.id === p.id);
     setItems(prev => prev.some(x => x.id === p.id) ? prev.map(x => x.id === p.id ? p : x) : [p, ...prev]);
     setEditing(null); setSel(p);
+    message.success(isUpdate ? `Đã cập nhật dự án ${p.code}` : `Đã tạo dự án ${p.code}`);
   }
-  function remove(id: string) { setItems(prev => prev.filter(x => x.id !== id)); setConfirmDel(null); setSel(null); }
+  function remove(id: string) { 
+    const item = items.find(x => x.id === id);
+    setItems(prev => prev.filter(x => x.id !== id)); 
+    setConfirmDel(null); 
+    setSel(null);
+    if (item) message.success(`Đã xóa dự án ${item.code}`);
+  }
 
   return (
     <div className="min-h-screen bg-background">

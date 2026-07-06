@@ -5,6 +5,7 @@ import {
   FileSignature, ArrowLeft, Search, Plus, Filter, Calendar, Building2,
   CheckCircle2, Clock, X, AlertTriangle, PenTool, Pencil, Trash2,
 } from "lucide-react";
+import { message } from "antd";
 import { ConfirmDialog } from "./certifications";
 
 export const Route = createFileRoute("/contracts")({
@@ -101,10 +102,18 @@ function ContractsPage() {
   const selPct = sel && sel.value ? Math.round(selPaid / sel.value * 100) : 0;
 
   function save(c: Contract) {
+    const isUpdate = items.some(x => x.id === c.id);
     setItems(prev => prev.some(x => x.id === c.id) ? prev.map(x => x.id === c.id ? c : x) : [c, ...prev]);
     setEditing(null); setSel(c);
+    message.success(isUpdate ? `Đã cập nhật hợp đồng ${c.code}` : `Đã tạo hợp đồng ${c.code}`);
   }
-  function remove(id: string) { setItems(prev => prev.filter(x => x.id !== id)); setConfirmDel(null); setSel(null); }
+  function remove(id: string) { 
+    const item = items.find(x => x.id === id);
+    setItems(prev => prev.filter(x => x.id !== id)); 
+    setConfirmDel(null); 
+    setSel(null);
+    if (item) message.success(`Đã xóa hợp đồng ${item.code}`);
+  }
 
   return (
     <div className="min-h-screen bg-background">

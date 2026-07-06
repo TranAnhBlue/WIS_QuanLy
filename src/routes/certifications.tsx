@@ -4,6 +4,7 @@ import {
   BadgeCheck, ArrowLeft, Search, Plus, Filter, Calendar, Building2,
   ShieldCheck, AlertTriangle, Clock, FileCheck2, X, Pencil, Trash2,
 } from "lucide-react";
+import { message } from "antd";
 
 export const Route = createFileRoute("/certifications")({
   head: () => ({
@@ -79,12 +80,16 @@ function CertificationsPage() {
   }), [certs]);
 
   function save(c: Cert) {
+    const isUpdate = certs.some(x => x.id === c.id);
     setCerts(prev => prev.some(x => x.id === c.id) ? prev.map(x => x.id === c.id ? c : x) : [c, ...prev]);
     setEditing(null); setSel(c);
+    message.success(isUpdate ? `Đã cập nhật ${c.code}` : `Đã tạo ${c.code}`);
   }
   function remove(id: string) {
+    const item = certs.find(x => x.id === id);
     setCerts(prev => prev.filter(x => x.id !== id));
     setConfirmDel(null); setSel(null);
+    if (item) message.success(`Đã xóa ${item.code}`);
   }
 
   return (

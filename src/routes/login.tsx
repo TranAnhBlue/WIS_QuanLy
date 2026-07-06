@@ -5,6 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Eye, EyeOff, LogIn } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { message } from "antd";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -51,12 +52,15 @@ function LoginPage() {
       const result = await login(data.email, data.password);
 
       if (result.success) {
+        message.success("Đăng nhập thành công! Chào mừng bạn quay trở lại");
         navigate({ to: "/" });
       } else {
         setError(result.error || "Đăng nhập thất bại");
+        message.error(result.error || "Email hoặc mật khẩu không đúng");
       }
     } catch (err) {
       setError("Đã xảy ra lỗi. Vui lòng thử lại.");
+      message.error("Không thể kết nối đến server");
     } finally {
       setIsLoading(false);
     }
@@ -121,37 +125,95 @@ function LoginPage() {
             </div>
 
             {/* Demo accounts info */}
-            <div className="rounded-lg border border-border bg-muted/50 p-3 text-xs space-y-1">
+            <div className="rounded-lg border border-border bg-muted/50 p-3 text-xs space-y-1 max-h-64 overflow-y-auto">
               <p className="font-semibold text-foreground mb-2">Tài khoản demo:</p>
-              <p className="text-muted-foreground">
-                <span className="font-medium">Admin:</span> admin@wis.vn / admin123
-              </p>
-              <p className="text-muted-foreground">
-                <span className="font-medium">CEO:</span> ceo@wis.vn / ceo123
-              </p>
-              <p className="text-muted-foreground">
-                <span className="font-medium">Manager:</span> manager@wis.vn / manager123
-              </p>
-              <p className="text-muted-foreground">
-                <span className="font-medium">Employee:</span> employee@wis.vn / employee123
-              </p>
+              
+              <div className="space-y-2">
+                <div>
+                  <p className="font-medium text-foreground">🏢 Tập đoàn:</p>
+                  <p className="text-muted-foreground ml-2">
+                    <span className="font-medium">Tổng GĐ:</span> ceo@wis.vn / ceo123
+                  </p>
+                  <p className="text-muted-foreground ml-2">
+                    <span className="font-medium">Admin:</span> admin@wis.vn / admin123
+                  </p>
+                </div>
+
+                <div>
+                  <p className="font-medium text-foreground">🏢 WCERT (Tầng 5):</p>
+                  <p className="text-muted-foreground ml-2">
+                    <span className="font-medium">Giám đốc:</span> ceo.wcert@wis.vn / wcert123
+                  </p>
+                  <p className="text-muted-foreground ml-2">
+                    <span className="font-medium">Auditor:</span> auditor@wcert.vn / auditor123
+                  </p>
+                  <p className="text-muted-foreground ml-2">
+                    <span className="font-medium">Sales:</span> sales@wcert.vn / sales123
+                  </p>
+                </div>
+
+                <div>
+                  <p className="font-medium text-foreground">🏢 SCT VIET (Tầng 3):</p>
+                  <p className="text-muted-foreground ml-2">
+                    <span className="font-medium">Giám đốc:</span> ceo.sct@wis.vn / sct123
+                  </p>
+                  <p className="text-muted-foreground ml-2">
+                    <span className="font-medium">Tuấn Vũ (302):</span> tuanvu@sct.vn / tuanvu123
+                  </p>
+                  <p className="text-muted-foreground ml-2">
+                    <span className="font-medium">Thùy (302):</span> thuy@sct.vn / thuy123
+                  </p>
+                  <p className="text-muted-foreground ml-2">
+                    <span className="font-medium">Bình (Pháp lý):</span> binh@sct.vn / binh123
+                  </p>
+                  <p className="text-muted-foreground ml-2">
+                    <span className="font-medium">Trainer:</span> trainer@sct.vn / trainer123
+                  </p>
+                </div>
+
+                <div>
+                  <p className="font-medium text-foreground">🏢 ICT VIET (Tầng 2):</p>
+                  <p className="text-muted-foreground ml-2">
+                    <span className="font-medium">Giám đốc:</span> ceo.ict@wis.vn / ict123
+                  </p>
+                  <p className="text-muted-foreground ml-2">
+                    <span className="font-medium">Du lịch:</span> tour@ict.vn / tour123
+                  </p>
+                  <p className="text-muted-foreground ml-2">
+                    <span className="font-medium">VietGAP:</span> vietgap@ict.vn / vietgap123
+                  </p>
+                </div>
+              </div>
             </div>
           </CardContent>
           <CardFooter className="flex flex-col gap-3">
             <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? "Đang đăng nhập..." : "Đăng nhập"}
             </Button>
-            <p className="text-sm text-muted-foreground text-center">
-              Chưa có tài khoản?{" "}
-              <button
-                type="button"
-                onClick={() => navigate({ to: "/register" })}
-                className="text-primary hover:underline"
-                disabled={isLoading}
-              >
-                Đăng ký ngay
-              </button>
-            </p>
+            <div className="space-y-2 w-full">
+              <p className="text-sm text-muted-foreground text-center">
+                Chưa có tài khoản?{" "}
+                <button
+                  type="button"
+                  onClick={() => navigate({ to: "/register" })}
+                  className="text-primary hover:underline"
+                  disabled={isLoading}
+                >
+                  Đăng ký ngay
+                </button>
+              </p>
+              <p className="text-sm text-muted-foreground text-center">
+                Không đăng nhập được?{" "}
+                <button
+                  type="button"
+                  onClick={() => navigate({ to: "/setup" })}
+                  className="text-orange-500 hover:underline font-medium"
+                  disabled={isLoading}
+                >
+                  Reset dữ liệu demo →
+                </button>
+              </p>
+            </div>
           </CardFooter>
         </form>
       </Card>

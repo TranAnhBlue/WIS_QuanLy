@@ -15,14 +15,16 @@ import {
   ShieldCheck,
   User as UserIcon,
   Crown,
+  Building2,
 } from "lucide-react";
+import { message } from "antd";
 import { useAuth } from "@/contexts/AuthContext";
-import type { User, UserRole } from "@/lib/auth";
-import { getAllUsers, saveUsers, deleteUser as deleteUserUtil } from "@/lib/auth";
+import type { Role, Company, Department } from "@/lib/permissions";
+import { COMPANY_INFO, DEPARTMENT_INFO, ROLE_HIERARCHY } from "@/lib/permissions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -31,13 +33,28 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
+interface ApiUser {
+  id: string;
+  email: string;
+  name: string;
+  role: Role;
+  company: Company;
+  department: Department;
+  phone?: string;
+  avatar?: string;
+  joinDate: Date | string;
+  status: 'active' | 'inactive';
+  createdAt?: Date | string;
+  updatedAt?: Date | string;
+}
+
 const userSchema = z.object({
   email: z.string().email("Email không hợp lệ"),
   password: z.string().min(6, "Mật khẩu phải có ít nhất 6 ký tự").optional(),
   name: z.string().min(2, "Họ tên phải có ít nhất 2 ký tự"),
-  role: z.enum(["admin", "ceo", "manager", "employee", "guest"]),
-  company: z.string().min(1, "Vui lòng nhập công ty"),
-  department: z.string().min(1, "Vui lòng nhập phòng ban"),
+  role: z.string(),
+  company: z.string(),
+  department: z.string(),
   phone: z.string().optional(),
   status: z.enum(["active", "inactive"]),
 });
@@ -46,18 +63,20 @@ type UserForm = z.infer<typeof userSchema>;
 
 function UsersPage() {
   const navigate = useNavigate();
-  const { session, isAuthenticated } = useAuth();
-  const [users, setUsers] = useState<User[]>([]);
+  const { user: currentUser, session, isAuthenticated, hasPermission } = useAuth();
+  const [users, setUsers] = useState<ApiUser[]>([]);
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState<string>("all");
+  const [companyFilter, setCompanyFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [editingUser, setEditingUser] = useState<User | null>(null);
-  const [deletingUser, setDeletingUser] = useState<User | null>(null);
+  const [editingUser, setEditingUser] = useState<ApiUser | null>(null);
+  const [deletingUser, setDeletingUser] = useState<ApiUser | null>(null);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [availableDepartments, setAvailableDepartments] = useState<Department[]>([]);
 
   const form = useForm<UserForm>({
     resolver: zodResolver(userSchema),
@@ -65,28 +84,83 @@ function UsersPage() {
       email: "",
       password: "",
       name: "",
-      role: "employee",
-      company: "WIS Group",
-      department: "",
+      role: "staff",
+      company: "WIS_GROUP",
+      department: "WIS_IT",
       phone: "",
       status: "active",
     },
   });
 
-  // Check permission
-  if (!isAuthenticated || !session || session.role !== "admin") {
+  // Update departments when company changes
+  useEffect(() => {
+    const company = form.watch("company") as Company;
+    if (company && COMPANY_INFO[company]) {
+      setAvailableDepartments(COMPANY_INFO[company].departments);
+      // Reset department to first available
+      if (COMPANY_INFO[company].departments.length > 0) {
+        form.setValue("department", COMPANY_INFO[company].departments[0]);
+      }
+    }
+  }, [form.watch("company")]);
+
+  // Check permission - only group_admin can access
+  if (!isAuthenticated || !session || !hasPermission("manage_users")) {
     navigate({ to: "/" });
     return null;
   }
 
-  // Load users
+  // Load users from API or localStorage
   useEffect(() => {
     loadUsers();
   }, []);
 
-  const loadUsers = () => {
-    const allUsers = getAllUsers();
-    setUsers(allUsers);
+  const loadUsers = async () => {
+    try {
+      // Try to load from localStorage first (where auth stores users)
+      const storedUsers = localStorage.getItem('wis_users');
+      if (storedUsers) {
+        const parsedUsers = JSON.parse(storedUsers);
+        // Transform to ApiUser format
+        const apiUsers: ApiUser[] = parsedUsers.map((u: any) => ({
+          id: u.id,
+          email: u.email,
+          name: u.name,
+          role: u.role,
+          company: u.company,
+          department: u.department,
+          phone: u.phone || '',
+          avatar: u.avatar,
+          joinDate: u.joinDate || new Date().toISOString(),
+          status: u.status || 'active',
+          createdAt: u.createdAt || new Date().toISOString(),
+          updatedAt: u.updatedAt || new Date().toISOString(),
+        }));
+        setUsers(apiUsers);
+        return;
+      }
+
+      // Fallback: Try API if available (for future when API works)
+      if (session?.token) {
+        const response = await fetch('/api/users', {
+          headers: {
+            'Authorization': `Bearer ${session.token}`,
+          },
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+          setUsers(data.users);
+        } else {
+          console.error('Failed to load users:', data.error);
+          message.error('Không thể tải danh sách người dùng');
+        }
+      }
+    } catch (error) {
+      console.error('Error loading users:', error);
+      message.error('Lỗi kết nối khi tải danh sách người dùng');
+    }
   };
 
   const filtered = useMemo(() => {
@@ -95,33 +169,41 @@ function UsersPage() {
         search === "" ||
         user.name.toLowerCase().includes(search.toLowerCase()) ||
         user.email.toLowerCase().includes(search.toLowerCase()) ||
-        user.department.toLowerCase().includes(search.toLowerCase());
+        DEPARTMENT_INFO[user.department]?.name.toLowerCase().includes(search.toLowerCase());
       const matchRole = roleFilter === "all" || user.role === roleFilter;
+      const matchCompany = companyFilter === "all" || user.company === companyFilter;
       const matchStatus = statusFilter === "all" || user.status === statusFilter;
-      return matchSearch && matchRole && matchStatus;
+      return matchSearch && matchRole && matchCompany && matchStatus;
     });
-  }, [users, search, roleFilter, statusFilter]);
+  }, [users, search, roleFilter, companyFilter, statusFilter]);
 
   const stats = useMemo(() => {
+    const byCompany = {
+      WCERT: users.filter((u) => u.company === "WCERT").length,
+      SCT_VIET: users.filter((u) => u.company === "SCT_VIET").length,
+      ICT_VIET: users.filter((u) => u.company === "ICT_VIET").length,
+      WIS_GROUP: users.filter((u) => u.company === "WIS_GROUP").length,
+    };
+
     return {
       total: users.length,
       active: users.filter((u) => u.status === "active").length,
-      admin: users.filter((u) => u.role === "admin").length,
-      ceo: users.filter((u) => u.role === "ceo").length,
-      manager: users.filter((u) => u.role === "manager").length,
-      employee: users.filter((u) => u.role === "employee").length,
+      ...byCompany,
     };
   }, [users]);
 
   const openCreate = () => {
     setEditingUser(null);
+    const defaultCompany: Company = "WIS_GROUP";
+    setAvailableDepartments(COMPANY_INFO[defaultCompany].departments);
+    
     form.reset({
       email: "",
       password: "",
       name: "",
-      role: "employee",
-      company: "WIS Group",
-      department: "",
+      role: "staff",
+      company: defaultCompany,
+      department: COMPANY_INFO[defaultCompany].departments[0],
       phone: "",
       status: "active",
     });
@@ -130,8 +212,10 @@ function UsersPage() {
     setDialogOpen(true);
   };
 
-  const openEdit = (user: User) => {
+  const openEdit = (user: ApiUser) => {
     setEditingUser(user);
+    setAvailableDepartments(COMPANY_INFO[user.company].departments);
+    
     form.reset({
       email: user.email,
       password: "", // Don't show password
@@ -147,126 +231,160 @@ function UsersPage() {
     setDialogOpen(true);
   };
 
-  const onSubmit = (data: UserForm) => {
+  const onSubmit = async (data: UserForm) => {
     setError("");
     setSuccess("");
 
     try {
-      const allUsers = getAllUsers();
+      // Get current users from localStorage
+      const storedUsers = localStorage.getItem('wis_users');
+      if (!storedUsers) {
+        message.error("Chưa có dữ liệu người dùng");
+        return;
+      }
+
+      const allUsers = JSON.parse(storedUsers);
 
       if (editingUser) {
         // Update existing user
-        const index = allUsers.findIndex((u) => u.id === editingUser.id);
-        if (index !== -1) {
-          const updatedUser: User = {
-            ...allUsers[index],
-            ...data,
-            // Only update password if provided
-            password: data.password || allUsers[index].password,
-            updatedAt: new Date().toISOString(),
-          };
-          allUsers[index] = updatedUser;
-          saveUsers(allUsers);
-          setSuccess("Cập nhật người dùng thành công!");
-          loadUsers();
-          setTimeout(() => setDialogOpen(false), 1000);
-        }
+        const updatedUsers = allUsers.map((u: any) => {
+          if (u.id === editingUser.id) {
+            return {
+              ...u,
+              name: data.name,
+              role: data.role,
+              company: data.company,
+              department: data.department,
+              phone: data.phone,
+              status: data.status,
+              password: data.password ? data.password : u.password, // Only update if new password provided
+              updatedAt: new Date().toISOString(),
+            };
+          }
+          return u;
+        });
+
+        localStorage.setItem('wis_users', JSON.stringify(updatedUsers));
+        message.success(`Cập nhật người dùng "${data.name}" thành công!`);
+        await loadUsers();
+        setTimeout(() => setDialogOpen(false), 500);
       } else {
         // Create new user
-        const emailExists = allUsers.some(
-          (u) => u.email.toLowerCase() === data.email.toLowerCase()
-        );
-        if (emailExists) {
-          setError("Email đã được sử dụng");
-          return;
-        }
-
         if (!data.password) {
-          setError("Vui lòng nhập mật khẩu");
+          message.error("Vui lòng nhập mật khẩu");
           return;
         }
 
-        const newUser: User = {
-          id: `user-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        // Check if email already exists
+        const emailExists = allUsers.some((u: any) => u.email === data.email);
+        if (emailExists) {
+          message.error("Email đã tồn tại trong hệ thống");
+          return;
+        }
+
+        const newUser = {
+          id: `user-${Date.now()}`,
           email: data.email,
-          password: data.password,
+          password: data.password, // In production, should be hashed
           name: data.name,
           role: data.role,
           company: data.company,
           department: data.department,
-          phone: data.phone,
-          joinDate: new Date().toISOString().split("T")[0],
+          phone: data.phone || '',
           status: data.status,
+          joinDate: new Date().toISOString(),
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         };
 
-        allUsers.push(newUser);
-        saveUsers(allUsers);
-        setSuccess("Tạo người dùng thành công!");
-        loadUsers();
-        setTimeout(() => setDialogOpen(false), 1000);
+        const updatedUsers = [...allUsers, newUser];
+        localStorage.setItem('wis_users', JSON.stringify(updatedUsers));
+        message.success(`Tạo người dùng "${data.name}" thành công!`);
+        await loadUsers();
+        setTimeout(() => setDialogOpen(false), 500);
       }
     } catch (err) {
-      setError("Đã xảy ra lỗi. Vui lòng thử lại.");
+      message.error("Đã xảy ra lỗi. Vui lòng thử lại.");
     }
   };
 
-  const confirmDelete = (user: User) => {
+  const confirmDelete = (user: ApiUser) => {
     setDeletingUser(user);
     setDeleteDialogOpen(true);
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!deletingUser) return;
 
     // Prevent deleting self
-    if (deletingUser.id === session.userId) {
-      alert("Không thể xóa tài khoản đang đăng nhập");
+    if (deletingUser.id === currentUser?.id) {
+      message.error("Không thể xóa tài khoản đang đăng nhập");
       return;
     }
 
-    const success = deleteUserUtil(deletingUser.id);
-    if (success) {
-      loadUsers();
+    try {
+      // Get current users from localStorage
+      const storedUsers = localStorage.getItem('wis_users');
+      if (!storedUsers) {
+        message.error("Không tìm thấy dữ liệu người dùng");
+        return;
+      }
+
+      const allUsers = JSON.parse(storedUsers);
+      const updatedUsers = allUsers.filter((u: any) => u.id !== deletingUser.id);
+      
+      localStorage.setItem('wis_users', JSON.stringify(updatedUsers));
+      message.success(`Đã xóa người dùng "${deletingUser.name}" thành công`);
+      await loadUsers();
       setDeleteDialogOpen(false);
       setDeletingUser(null);
+    } catch (error) {
+      console.error('Delete error:', error);
+      message.error('Đã xảy ra lỗi khi xóa người dùng');
     }
   };
 
-  const getRoleIcon = (role: UserRole) => {
-    switch (role) {
-      case "admin":
-        return <ShieldCheck className="h-4 w-4" />;
-      case "ceo":
-        return <Crown className="h-4 w-4" />;
-      case "manager":
-        return <Shield className="h-4 w-4" />;
-      default:
-        return <UserIcon className="h-4 w-4" />;
-    }
+  const getRoleIcon = (role: Role) => {
+    const level = ROLE_HIERARCHY[role];
+    if (level >= 85) return <ShieldCheck className="h-4 w-4" />;
+    if (level >= 70) return <Crown className="h-4 w-4" />;
+    if (level >= 50) return <Shield className="h-4 w-4" />;
+    return <UserIcon className="h-4 w-4" />;
   };
 
-  const getRoleName = (role: UserRole) => {
-    const names: Record<UserRole, string> = {
-      admin: "Admin",
-      ceo: "CEO",
-      manager: "Manager",
-      employee: "Employee",
-      guest: "Guest",
+  const getRoleName = (role: Role) => {
+    const names: Record<string, string> = {
+      group_ceo: "Tổng GĐ",
+      group_director: "GĐ Điều hành",
+      group_admin: "Admin",
+      company_ceo: "GĐ Công ty",
+      company_deputy: "Phó GĐ",
+      dept_manager: "Trưởng phòng",
+      dept_deputy: "Phó phòng",
+      team_leader: "Trưởng nhóm",
+      senior_specialist: "Chuyên viên cao cấp",
+      specialist: "Chuyên viên",
+      staff: "Nhân viên",
+      intern: "Thực tập sinh",
     };
-    return names[role];
+    return names[role] || role;
   };
 
-  const getRoleColor = (role: UserRole) => {
-    const colors: Record<UserRole, string> = {
-      admin: "bg-red-500",
-      ceo: "bg-purple-500",
-      manager: "bg-blue-500",
-      employee: "bg-green-500",
-      guest: "bg-gray-500",
-    };
-    return colors[role];
+  const getRoleColor = (role: Role) => {
+    const level = ROLE_HIERARCHY[role];
+    if (level >= 85) return "bg-red-500";
+    if (level >= 70) return "bg-purple-500";
+    if (level >= 50) return "bg-blue-500";
+    if (level >= 30) return "bg-green-500";
+    return "bg-gray-500";
+  };
+
+  const getCompanyName = (company: Company) => {
+    return COMPANY_INFO[company]?.name || company;
+  };
+
+  const getDepartmentName = (department: Department) => {
+    return DEPARTMENT_INFO[department]?.name || department;
   };
 
   const getInitials = (name: string) => {
@@ -316,34 +434,34 @@ function UsersPage() {
           </Card>
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Admin</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">WCERT</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-red-600">{stats.admin}</div>
+              <div className="text-2xl font-bold text-blue-600">{stats.WCERT}</div>
             </CardContent>
           </Card>
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">CEO</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">SCT VIET</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-purple-600">{stats.ceo}</div>
+              <div className="text-2xl font-bold text-purple-600">{stats.SCT_VIET}</div>
             </CardContent>
           </Card>
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Manager</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">ICT VIET</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-blue-600">{stats.manager}</div>
+              <div className="text-2xl font-bold text-orange-600">{stats.ICT_VIET}</div>
             </CardContent>
           </Card>
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Employee</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">WIS Group</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-green-600">{stats.employee}</div>
+              <div className="text-2xl font-bold text-red-600">{stats.WIS_GROUP}</div>
             </CardContent>
           </Card>
         </div>
@@ -361,17 +479,32 @@ function UsersPage() {
                   className="pl-9"
                 />
               </div>
+              <Select value={companyFilter} onValueChange={setCompanyFilter}>
+                <SelectTrigger className="w-full md:w-[180px]">
+                  <SelectValue placeholder="Công ty" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tất cả công ty</SelectItem>
+                  <SelectItem value="WCERT">WCERT</SelectItem>
+                  <SelectItem value="SCT_VIET">SCT VIET</SelectItem>
+                  <SelectItem value="ICT_VIET">ICT VIET</SelectItem>
+                  <SelectItem value="WIS_GROUP">WIS Group</SelectItem>
+                </SelectContent>
+              </Select>
               <Select value={roleFilter} onValueChange={setRoleFilter}>
                 <SelectTrigger className="w-full md:w-[180px]">
                   <SelectValue placeholder="Vai trò" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Tất cả vai trò</SelectItem>
-                  <SelectItem value="admin">Admin</SelectItem>
-                  <SelectItem value="ceo">CEO</SelectItem>
-                  <SelectItem value="manager">Manager</SelectItem>
-                  <SelectItem value="employee">Employee</SelectItem>
-                  <SelectItem value="guest">Guest</SelectItem>
+                  <SelectItem value="group_ceo">Tổng GĐ</SelectItem>
+                  <SelectItem value="group_admin">Admin</SelectItem>
+                  <SelectItem value="company_ceo">GĐ Công ty</SelectItem>
+                  <SelectItem value="dept_manager">Trưởng phòng</SelectItem>
+                  <SelectItem value="team_leader">Trưởng nhóm</SelectItem>
+                  <SelectItem value="senior_specialist">Chuyên viên cao cấp</SelectItem>
+                  <SelectItem value="specialist">Chuyên viên</SelectItem>
+                  <SelectItem value="staff">Nhân viên</SelectItem>
                 </SelectContent>
               </Select>
               <Select value={statusFilter} onValueChange={setStatusFilter}>
@@ -426,14 +559,24 @@ function UsersPage() {
                         {getRoleName(user.role)}
                       </Badge>
                     </TableCell>
-                    <TableCell>{user.company}</TableCell>
-                    <TableCell>{user.department}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <Building2 className="h-4 w-4 text-muted-foreground" />
+                        <div>
+                          <div className="font-medium text-sm">{COMPANY_INFO[user.company]?.floor}</div>
+                          <div className="text-xs text-muted-foreground">{user.company}</div>
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="text-sm">{getDepartmentName(user.department)}</div>
+                    </TableCell>
                     <TableCell>
                       <Badge variant={user.status === "active" ? "default" : "secondary"}>
                         {user.status === "active" ? "Hoạt động" : "Không hoạt động"}
                       </Badge>
                     </TableCell>
-                    <TableCell>{user.joinDate}</TableCell>
+                    <TableCell>{typeof user.joinDate === 'string' ? user.joinDate : new Date(user.joinDate).toISOString().split('T')[0]}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
                         <Button
@@ -447,7 +590,7 @@ function UsersPage() {
                           variant="ghost"
                           size="sm"
                           onClick={() => confirmDelete(user)}
-                          disabled={user.id === session.userId}
+                          disabled={user.id === currentUser?.id}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -537,58 +680,73 @@ function UsersPage() {
                 </div>
 
                 <div className="space-y-2">
+                  <Label htmlFor="company">Công ty</Label>
+                  <Select
+                    value={form.watch("company")}
+                    onValueChange={(value) => {
+                      const company = value as Company;
+                      form.setValue("company", company);
+                      setAvailableDepartments(COMPANY_INFO[company].departments);
+                      if (COMPANY_INFO[company].departments.length > 0) {
+                        form.setValue("department", COMPANY_INFO[company].departments[0]);
+                      }
+                    }}
+                  >
+                    <SelectTrigger id="company">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="WIS_GROUP">WIS Group</SelectItem>
+                      <SelectItem value="WCERT">WCERT - Tầng 5</SelectItem>
+                      <SelectItem value="SCT_VIET">SCT VIET - Tầng 3</SelectItem>
+                      <SelectItem value="ICT_VIET">ICT VIET - Tầng 2</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="department">Phòng ban</Label>
+                  <Select
+                    value={form.watch("department")}
+                    onValueChange={(value) => form.setValue("department", value)}
+                  >
+                    <SelectTrigger id="department">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableDepartments.map((dept) => (
+                        <SelectItem key={dept} value={dept}>
+                          {DEPARTMENT_INFO[dept]?.name || dept}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
                   <Label htmlFor="role">Vai trò</Label>
                   <Select
                     value={form.watch("role")}
-                    onValueChange={(value) => form.setValue("role", value as UserRole)}
+                    onValueChange={(value) => form.setValue("role", value)}
                   >
                     <SelectTrigger id="role">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="admin">Admin</SelectItem>
-                      <SelectItem value="ceo">CEO</SelectItem>
-                      <SelectItem value="manager">Manager</SelectItem>
-                      <SelectItem value="employee">Employee</SelectItem>
-                      <SelectItem value="guest">Guest</SelectItem>
+                      <SelectItem value="group_ceo">Tổng Giám đốc</SelectItem>
+                      <SelectItem value="group_director">Giám đốc điều hành</SelectItem>
+                      <SelectItem value="group_admin">Quản trị hệ thống</SelectItem>
+                      <SelectItem value="company_ceo">Giám đốc công ty</SelectItem>
+                      <SelectItem value="company_deputy">Phó giám đốc</SelectItem>
+                      <SelectItem value="dept_manager">Trưởng phòng</SelectItem>
+                      <SelectItem value="dept_deputy">Phó phòng</SelectItem>
+                      <SelectItem value="team_leader">Trưởng nhóm</SelectItem>
+                      <SelectItem value="senior_specialist">Chuyên viên cao cấp</SelectItem>
+                      <SelectItem value="specialist">Chuyên viên</SelectItem>
+                      <SelectItem value="staff">Nhân viên</SelectItem>
+                      <SelectItem value="intern">Thực tập sinh</SelectItem>
                     </SelectContent>
                   </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="status">Trạng thái</Label>
-                  <Select
-                    value={form.watch("status")}
-                    onValueChange={(value) => form.setValue("status", value as "active" | "inactive")}
-                  >
-                    <SelectTrigger id="status">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="active">Hoạt động</SelectItem>
-                      <SelectItem value="inactive">Không hoạt động</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="company">Công ty</Label>
-                  <Input id="company" {...form.register("company")} />
-                  {form.formState.errors.company && (
-                    <p className="text-sm text-destructive">
-                      {form.formState.errors.company.message}
-                    </p>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="department">Phòng ban</Label>
-                  <Input id="department" {...form.register("department")} />
-                  {form.formState.errors.department && (
-                    <p className="text-sm text-destructive">
-                      {form.formState.errors.department.message}
-                    </p>
-                  )}
                 </div>
               </div>
 

@@ -4,6 +4,7 @@ import {
   Award, ArrowLeft, Gift, Sparkles, TrendingUp, Star, Trophy, Coins,
   Plus, Search, Filter, ShoppingBag, Target, CheckCircle2,
 } from "lucide-react";
+import { message } from "antd";
 
 export const Route = createFileRoute("/reward")({
   head: () => ({
@@ -131,12 +132,16 @@ function RewardsPage() {
 
   const givePoints = (memberId: string, pts: number, reason: string) => {
     const m = members.find((x) => x.id === memberId);
-    if (!m || pts <= 0) return;
+    if (!m || pts <= 0) {
+      message.error("Không thể cộng điểm. Vui lòng kiểm tra lại.");
+      return;
+    }
     setMembers((prev) => prev.map((x) => (x.id === memberId ? { ...x, points: x.points + pts, delta: x.delta + pts } : x)));
     setActivities((prev) => [
       { id: `a${Date.now()}`, who: m.name, action: reason || "Cộng điểm thưởng", points: pts, when: "Vừa xong", type: "earn" },
       ...prev,
     ]);
+    message.success(`Đã cộng ${pts} điểm cho ${m.name}`);
   };
 
   return (

@@ -4,6 +4,7 @@ import {
   FileText, ArrowLeft, Search, Plus, Filter, Calendar, Building2, X,
   Send, CheckCircle2, XCircle, Clock, FileSignature, Pencil, Trash2,
 } from "lucide-react";
+import { message } from "antd";
 import { ConfirmDialog } from "./certifications";
 
 export const Route = createFileRoute("/quotations")({
@@ -104,10 +105,18 @@ function QuotationsPage() {
   const selTotal = sel?.items.reduce((s, l) => s + l.qty * l.price, 0) ?? 0;
 
   function save(item: Quote) {
+    const isUpdate = items.some(x => x.id === item.id);
     setItems(prev => prev.some(x => x.id === item.id) ? prev.map(x => x.id === item.id ? item : x) : [item, ...prev]);
     setEditing(null); setSel(item);
+    message.success(isUpdate ? `Đã cập nhật báo giá ${item.code}` : `Đã tạo báo giá ${item.code}`);
   }
-  function remove(id: string) { setItems(prev => prev.filter(x => x.id !== id)); setConfirmDel(null); setSel(null); }
+  function remove(id: string) { 
+    const item = items.find(x => x.id === id);
+    setItems(prev => prev.filter(x => x.id !== id)); 
+    setConfirmDel(null); 
+    setSel(null);
+    if (item) message.success(`Đã xóa báo giá ${item.code}`);
+  }
 
   return (
     <div className="min-h-screen bg-background">

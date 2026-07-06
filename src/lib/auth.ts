@@ -1,14 +1,14 @@
 // Authentication utilities using localStorage
-export type UserRole = "admin" | "ceo" | "manager" | "employee" | "guest";
+import type { Company, Department, Role } from "./permissions";
 
 export interface User {
   id: string;
   email: string;
   password: string; // In production, this should be hashed
   name: string;
-  role: UserRole;
-  company: string;
-  department: string;
+  role: Role;
+  company: Company;
+  department: Department;
   phone?: string;
   avatar?: string;
   joinDate: string;
@@ -21,9 +21,9 @@ export interface AuthSession {
   userId: string;
   email: string;
   name: string;
-  role: UserRole;
-  company: string;
-  department: string;
+  role: Role;
+  company: Company;
+  department: Department;
   avatar?: string;
   loginAt: string;
 }
@@ -36,11 +36,11 @@ const DEFAULT_USERS: User[] = [
   {
     id: "admin-001",
     email: "admin@wis.vn",
-    password: "admin123", // In production, hash this
+    password: "admin123",
     name: "Admin System",
-    role: "admin",
-    company: "WIS Group",
-    department: "IT",
+    role: "group_admin",
+    company: "WIS_GROUP",
+    department: "WIS_IT",
     phone: "0900000000",
     joinDate: new Date().toISOString().split("T")[0],
     status: "active",
@@ -52,9 +52,9 @@ const DEFAULT_USERS: User[] = [
     email: "ceo@wis.vn",
     password: "ceo123",
     name: "Nguyễn Thị Lan Anh",
-    role: "ceo",
-    company: "WIS Group",
-    department: "Executive",
+    role: "group_ceo",
+    company: "WIS_GROUP",
+    department: "WIS_EXECUTIVE",
     phone: "0900000001",
     avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=LanAnh",
     joinDate: "2020-01-01",
@@ -62,30 +62,187 @@ const DEFAULT_USERS: User[] = [
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   },
+  // WCERT - Tầng 5
   {
-    id: "mgr-001",
-    email: "manager@wis.vn",
-    password: "manager123",
+    id: "wcert-ceo-001",
+    email: "ceo.wcert@wis.vn",
+    password: "wcert123",
     name: "Trần Văn Minh",
-    role: "manager",
-    company: "WIS Group",
-    department: "Sales",
+    role: "company_ceo",
+    company: "WCERT",
+    department: "WCERT_TECHNICAL",
     phone: "0900000002",
+    joinDate: "2021-01-15",
+    status: "active",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "wcert-tech-001",
+    email: "auditor@wcert.vn",
+    password: "auditor123",
+    name: "Lê Thị Hương",
+    role: "senior_specialist",
+    company: "WCERT",
+    department: "WCERT_TECHNICAL",
+    phone: "0900000003",
+    joinDate: "2021-03-20",
+    status: "active",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "wcert-sales-001",
+    email: "sales@wcert.vn",
+    password: "sales123",
+    name: "Phạm Quốc Tuấn",
+    role: "specialist",
+    company: "WCERT",
+    department: "WCERT_SALES",
+    phone: "0900000004",
+    joinDate: "2021-06-10",
+    status: "active",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  // SCT VIET - Tầng 3
+  {
+    id: "sct-ceo-001",
+    email: "ceo.sct@wis.vn",
+    password: "sct123",
+    name: "Hoàng Minh Đức",
+    role: "company_ceo",
+    company: "SCT_VIET",
+    department: "SCT_CONSULTING",
+    phone: "0900000005",
+    joinDate: "2020-08-01",
+    status: "active",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "sct-science-001",
+    email: "tuanvu@sct.vn",
+    password: "tuanvu123",
+    name: "Tuấn Vũ",
+    role: "dept_manager",
+    company: "SCT_VIET",
+    department: "SCT_SCIENCE",
+    phone: "0900000006",
+    joinDate: "2020-09-15",
+    status: "active",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "sct-science-002",
+    email: "thuy@sct.vn",
+    password: "thuy123",
+    name: "Thùy",
+    role: "senior_specialist",
+    company: "SCT_VIET",
+    department: "SCT_SCIENCE",
+    phone: "0900000007",
+    joinDate: "2021-01-10",
+    status: "active",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "sct-science-003",
+    email: "duc@sct.vn",
+    password: "duc123",
+    name: "Đức",
+    role: "specialist",
+    company: "SCT_VIET",
+    department: "SCT_SCIENCE",
+    phone: "0900000008",
+    joinDate: "2021-02-20",
+    status: "active",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "sct-science-004",
+    email: "loc@sct.vn",
+    password: "loc123",
+    name: "Lộc",
+    role: "specialist",
+    company: "SCT_VIET",
+    department: "SCT_SCIENCE",
+    phone: "0900000009",
     joinDate: "2021-03-15",
     status: "active",
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   },
   {
-    id: "emp-001",
-    email: "employee@wis.vn",
-    password: "employee123",
-    name: "Lê Thị Hương",
-    role: "employee",
-    company: "WIS Group",
-    department: "Marketing",
-    phone: "0900000003",
-    joinDate: "2022-06-01",
+    id: "sct-legal-001",
+    email: "binh@sct.vn",
+    password: "binh123",
+    name: "Bình",
+    role: "dept_manager",
+    company: "SCT_VIET",
+    department: "SCT_LEGAL",
+    phone: "0900000010",
+    joinDate: "2020-10-01",
+    status: "active",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "sct-training-001",
+    email: "trainer@sct.vn",
+    password: "trainer123",
+    name: "Nguyễn Văn Thành",
+    role: "team_leader",
+    company: "SCT_VIET",
+    department: "SCT_TRAINING",
+    phone: "0900000011",
+    joinDate: "2021-04-01",
+    status: "active",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  // ICT VIET - Tầng 2
+  {
+    id: "ict-ceo-001",
+    email: "ceo.ict@wis.vn",
+    password: "ict123",
+    name: "Vũ Thị Mai",
+    role: "company_ceo",
+    company: "ICT_VIET",
+    department: "ICT_TOURISM",
+    phone: "0900000012",
+    joinDate: "2020-07-01",
+    status: "active",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "ict-tourism-001",
+    email: "tour@ict.vn",
+    password: "tour123",
+    name: "Đỗ Minh Hà",
+    role: "specialist",
+    company: "ICT_VIET",
+    department: "ICT_TOURISM",
+    phone: "0900000013",
+    joinDate: "2021-05-15",
+    status: "active",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "ict-vietgap-001",
+    email: "vietgap@ict.vn",
+    password: "vietgap123",
+    name: "Lý Văn Sơn",
+    role: "senior_specialist",
+    company: "ICT_VIET",
+    department: "ICT_VIETGAP",
+    phone: "0900000014",
+    joinDate: "2021-06-20",
     status: "active",
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -280,31 +437,25 @@ export function changePassword(userId: string, oldPassword: string, newPassword:
 }
 
 // Permission checks
-export function hasPermission(userRole: UserRole, requiredRole: UserRole): boolean {
-  const hierarchy: Record<UserRole, number> = {
-    admin: 5,
-    ceo: 4,
-    manager: 3,
-    employee: 2,
-    guest: 1,
-  };
+import { ROLE_HIERARCHY } from "./permissions";
 
-  return hierarchy[userRole] >= hierarchy[requiredRole];
+export function hasPermission(userRole: Role, requiredRole: Role): boolean {
+  return ROLE_HIERARCHY[userRole] >= ROLE_HIERARCHY[requiredRole];
 }
 
-export function canAccessRoute(userRole: UserRole, route: string): boolean {
-  // Define route permissions
-  const routePermissions: Record<string, UserRole> = {
-    "/admin": "admin",
-    "/users": "admin",
-    "/hr": "manager",
-    "/contracts": "manager",
-    "/quotations": "manager",
-    "/projects": "employee",
-    "/training": "employee",
-    "/certifications": "employee",
-    "/chat": "employee",
-    "/rewards": "employee",
+export function canAccessRoute(userRole: Role, route: string): boolean {
+  // Define route permissions with new roles
+  const routePermissions: Record<string, Role> = {
+    "/users": "group_admin",
+    "/settings": "group_admin",
+    "/hr": "dept_manager",
+    "/contracts": "dept_manager",
+    "/quotations": "team_leader",
+    "/projects": "specialist",
+    "/training": "staff",
+    "/certifications": "staff",
+    "/chat": "staff",
+    "/rewards": "staff",
   };
 
   const requiredRole = routePermissions[route];
@@ -313,4 +464,31 @@ export function canAccessRoute(userRole: UserRole, route: string): boolean {
   }
 
   return hasPermission(userRole, requiredRole);
+}
+
+// Exported functions for AuthContext compatibility
+export const DEMO_USERS = DEFAULT_USERS;
+
+export function loginUser(email: string, password: string): { success: boolean; session?: AuthSession; error?: string } {
+  const session = login(email, password);
+  if (session) {
+    return { success: true, session };
+  }
+  return { success: false, error: 'Email hoặc mật khẩu không đúng' };
+}
+
+export function updateUserProfile(userId: string, data: { name: string; phone?: string }): { success: boolean; user?: User; error?: string } {
+  const user = updateUser(userId, data);
+  if (user) {
+    return { success: true, user };
+  }
+  return { success: false, error: 'Cập nhật thất bại' };
+}
+
+export function changeUserPassword(userId: string, oldPassword: string, newPassword: string): { success: boolean; error?: string } {
+  const success = changePassword(userId, oldPassword, newPassword);
+  if (success) {
+    return { success: true };
+  }
+  return { success: false, error: 'Mật khẩu hiện tại không đúng' };
 }

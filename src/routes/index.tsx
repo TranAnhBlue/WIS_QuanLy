@@ -7,7 +7,9 @@ import {
   TrendingUp, TrendingDown, ArrowUpRight, AlertTriangle, Clock, Send,
   Building2, ChevronsLeft, Circle, Award, LogOut, User as UserIcon, Shield,
 } from "lucide-react";
+import { message } from "antd";
 import { useAuth } from "@/contexts/AuthContext";
+import { DEPARTMENT_INFO } from "@/lib/permissions";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -110,7 +112,7 @@ const ACTIVITY = [
 
 function DashboardPage() {
   const navigate = useNavigate();
-  const { session, user, isAuthenticated, isLoading, logout } = useAuth();
+  const { session, user, isAuthenticated, isLoading, logout, hasPermission } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
   const [active, setActive] = useState("dashboard");
   const [company, setCompany] = useState("group");
@@ -142,6 +144,7 @@ function DashboardPage() {
 
   const handleLogout = () => {
     logout();
+    message.success("Đã đăng xuất thành công!");
     navigate({ to: "/login" });
   };
 
@@ -265,7 +268,9 @@ function DashboardPage() {
               {!collapsed && (
                 <div className="min-w-0 flex-1">
                   <div className="text-xs font-medium truncate">{user.name}</div>
-                  <div className="text-[10px] text-muted-foreground truncate">{user.role === "admin" ? "Administrator" : user.role === "ceo" ? "Group CEO" : user.department}</div>
+                  <div className="text-[10px] text-muted-foreground truncate">
+                    {DEPARTMENT_INFO[user.department]?.name || user.department}
+                  </div>
                 </div>
               )}
               {!collapsed && (
@@ -289,7 +294,7 @@ function DashboardPage() {
                     <UserIcon className="h-4 w-4" />
                     Thông tin cá nhân
                   </Link>
-                  {session?.role === "admin" && (
+                  {hasPermission("manage_users") && (
                     <Link
                       to="/users"
                       className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent transition"

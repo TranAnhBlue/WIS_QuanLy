@@ -5,6 +5,9 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { User as UserIcon, Lock, Save, Eye, EyeOff } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { COMPANY_INFO, DEPARTMENT_INFO } from "@/lib/permissions";
+import type { Role } from "@/lib/permissions";
+import { message } from "antd";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,7 +21,6 @@ const profileSchema = z.object({
   name: z.string().min(2, "Họ tên phải có ít nhất 2 ký tự"),
   email: z.string().email("Email không hợp lệ"),
   phone: z.string().optional(),
-  department: z.string().min(1, "Vui lòng nhập phòng ban"),
 });
 
 const passwordSchema = z.object({
@@ -35,7 +37,7 @@ type PasswordForm = z.infer<typeof passwordSchema>;
 
 function ProfilePage() {
   const navigate = useNavigate();
-  const { user, session, isAuthenticated, updateProfile, changePassword } = useAuth();
+  const { user, isAuthenticated, updateProfile, changePassword } = useAuth();
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -51,7 +53,6 @@ function ProfilePage() {
       name: user?.name || "",
       email: user?.email || "",
       phone: user?.phone || "",
-      department: user?.department || "",
     },
   });
 
@@ -75,15 +76,21 @@ function ProfilePage() {
     setIsLoading(true);
 
     try {
-      const result = await updateProfile(data);
+      const result = await updateProfile({
+        name: data.name,
+        phone: data.phone,
+      });
 
       if (result.success) {
         setSuccess("Cập nhật thông tin thành công!");
+        message.success("Thông tin cá nhân đã được cập nhật");
       } else {
         setError(result.error || "Cập nhật thất bại");
+        message.error(result.error || "Vui lòng thử lại");
       }
     } catch (err) {
       setError("Đã xảy ra lỗi. Vui lòng thử lại.");
+      message.error("Không thể cập nhật thông tin");
     } finally {
       setIsLoading(false);
     }
@@ -100,23 +107,33 @@ function ProfilePage() {
       if (result.success) {
         setSuccess("Đổi mật khẩu thành công!");
         passwordForm.reset();
+        message.success("Mật khẩu của bạn đã được cập nhật");
       } else {
         setError(result.error || "Đổi mật khẩu thất bại");
+        message.error(result.error || "Vui lòng kiểm tra lại mật khẩu hiện tại");
       }
     } catch (err) {
       setError("Đã xảy ra lỗi. Vui lòng thử lại.");
+      message.error("Không thể đổi mật khẩu");
     } finally {
       setIsLoading(false);
     }
   };
 
-  const getRoleName = (role: string) => {
+  const getRoleName = (role: Role) => {
     const roleNames: Record<string, string> = {
-      admin: "Quản trị viên",
-      ceo: "Tổng Giám Đốc",
-      manager: "Quản lý",
-      employee: "Nhân viên",
-      guest: "Khách",
+      group_ceo: "Tổng Giám đốc",
+      group_director: "Giám đốc điều hành",
+      group_admin: "Quản trị hệ thống",
+      company_ceo: "Giám đốc công ty",
+      company_deputy: "Phó giám đốc",
+      dept_manager: "Trưởng phòng",
+      dept_deputy: "Phó phòng",
+      team_leader: "Trưởng nhóm",
+      senior_specialist: "Chuyên viên cao cấp",
+      specialist: "Chuyên viên",
+      staff: "Nhân viên",
+      intern: "Thực tập sinh",
     };
     return roleNames[role] || role;
   };
@@ -164,8 +181,8 @@ function ProfilePage() {
                     <span className="h-2 w-2 rounded-full bg-primary"></span>
                     {getRoleName(user.role)}
                   </span>
-                  <span className="rounded-full border px-3 py-1">{user.company}</span>
-                  <span className="rounded-full border px-3 py-1">{user.department}</span>
+                  <span className="rounded-full border px-3 py-1">{COMPANY_INFO[user.company]?.name || user.company}</span>
+                  <span className="rounded-full border px-3 py-1">{DEPARTMENT_INFO[user.department]?.name || user.department}</span>
                 </div>
               </div>
             </div>
@@ -243,22 +260,13 @@ function ProfilePage() {
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="department">Phòng ban</Label>
-                      <Input
-                        id="department"
-                        {...profileForm.register("department")}
-                        disabled={isLoading}
-                      />
-                      {profileForm.formState.errors.department && (
-                        <p className="text-sm text-destructive">
-                          {profileForm.formState.errors.department.message}
-                        </p>
-                      )}
+                      <Label>Công ty</Label>
+                      <Input value={COMPANY_INFO[user.company]?.name || user.company} disabled />
                     </div>
 
                     <div className="space-y-2">
-                      <Label>Công ty</Label>
-                      <Input value={user.company} disabled />
+                      <Label>Phòng ban</Label>
+                      <Input value={DEPARTMENT_INFO[user.department]?.name || user.department} disabled />
                     </div>
 
                     <div className="space-y-2">
@@ -268,7 +276,7 @@ function ProfilePage() {
 
                     <div className="space-y-2">
                       <Label>Ngày tham gia</Label>
-                      <Input value={user.joinDate} disabled />
+                      <Input value={typeof user.joinDate === 'string' ? user.joinDate : new Date(user.joinDate).toISOString().split('T')[0]} disabled />
                     </div>
 
                     <div className="space-y-2">

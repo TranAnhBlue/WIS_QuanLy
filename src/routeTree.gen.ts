@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as UsersRouteImport } from './routes/users'
 import { Route as TrainingRouteImport } from './routes/training'
+import { Route as SetupRouteImport } from './routes/setup'
 import { Route as RewardRouteImport } from './routes/reward'
 import { Route as RegisterRouteImport } from './routes/register'
 import { Route as QuotationsRouteImport } from './routes/quotations'
@@ -32,6 +33,11 @@ const UsersRoute = UsersRouteImport.update({
 const TrainingRoute = TrainingRouteImport.update({
   id: '/training',
   path: '/training',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SetupRoute = SetupRouteImport.update({
+  id: '/setup',
+  path: '/setup',
   getParentRoute: () => rootRouteImport,
 } as any)
 const RewardRoute = RewardRouteImport.update({
@@ -107,6 +113,7 @@ export interface FileRoutesByFullPath {
   '/quotations': typeof QuotationsRoute
   '/register': typeof RegisterRoute
   '/reward': typeof RewardRoute
+  '/setup': typeof SetupRoute
   '/training': typeof TrainingRouteWithChildren
   '/users': typeof UsersRoute
   '/training/$courseId': typeof TrainingCourseIdRoute
@@ -123,6 +130,7 @@ export interface FileRoutesByTo {
   '/quotations': typeof QuotationsRoute
   '/register': typeof RegisterRoute
   '/reward': typeof RewardRoute
+  '/setup': typeof SetupRoute
   '/training': typeof TrainingRouteWithChildren
   '/users': typeof UsersRoute
   '/training/$courseId': typeof TrainingCourseIdRoute
@@ -140,6 +148,7 @@ export interface FileRoutesById {
   '/quotations': typeof QuotationsRoute
   '/register': typeof RegisterRoute
   '/reward': typeof RewardRoute
+  '/setup': typeof SetupRoute
   '/training': typeof TrainingRouteWithChildren
   '/users': typeof UsersRoute
   '/training/$courseId': typeof TrainingCourseIdRoute
@@ -158,6 +167,7 @@ export interface FileRouteTypes {
     | '/quotations'
     | '/register'
     | '/reward'
+    | '/setup'
     | '/training'
     | '/users'
     | '/training/$courseId'
@@ -174,6 +184,7 @@ export interface FileRouteTypes {
     | '/quotations'
     | '/register'
     | '/reward'
+    | '/setup'
     | '/training'
     | '/users'
     | '/training/$courseId'
@@ -190,6 +201,7 @@ export interface FileRouteTypes {
     | '/quotations'
     | '/register'
     | '/reward'
+    | '/setup'
     | '/training'
     | '/users'
     | '/training/$courseId'
@@ -207,6 +219,7 @@ export interface RootRouteChildren {
   QuotationsRoute: typeof QuotationsRoute
   RegisterRoute: typeof RegisterRoute
   RewardRoute: typeof RewardRoute
+  SetupRoute: typeof SetupRoute
   TrainingRoute: typeof TrainingRouteWithChildren
   UsersRoute: typeof UsersRoute
 }
@@ -225,6 +238,13 @@ declare module '@tanstack/react-router' {
       path: '/training'
       fullPath: '/training'
       preLoaderRoute: typeof TrainingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/setup': {
+      id: '/setup'
+      path: '/setup'
+      fullPath: '/setup'
+      preLoaderRoute: typeof SetupRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/reward': {
@@ -338,6 +358,7 @@ const rootRouteChildren: RootRouteChildren = {
   QuotationsRoute: QuotationsRoute,
   RegisterRoute: RegisterRoute,
   RewardRoute: RewardRoute,
+  SetupRoute: SetupRoute,
   TrainingRoute: TrainingRouteWithChildren,
   UsersRoute: UsersRoute,
 }
