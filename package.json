@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "db:seed": "tsx scripts/seed-database.ts"
+    "db:seed": "tsx scripts/seed-database.ts",
+    "db:seed-users": "tsx scripts/seed-users.ts"
   },
   "dependencies": {
     "@fontsource/ibm-plex-sans": "^5.2.8",

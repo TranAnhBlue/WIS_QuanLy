@@ -3,8 +3,8 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from "
 import type { Role, Permission } from "@/lib/permissions";
 import { ROLE_HIERARCHY, PERMISSIONS } from "@/lib/permissions";
 
-// API Base URL
-const API_BASE = typeof window !== 'undefined' ? window.location.origin : '';
+// API Base URL - Backend Node.js API
+const API_BASE = 'http://localhost:5000';
 
 interface User {
   id: string;
@@ -76,7 +76,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
     try {
-      // Try API login first
+      // Call Backend Node.js API
       const response = await fetch(`${API_BASE}/api/auth/login`, {
         method: 'POST',
         headers: {
@@ -88,60 +88,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const data = await response.json();
 
       if (response.ok && data.success && data.token && data.user) {
-        // API login successful
+        // API login successful - save to localStorage
         localStorage.setItem(TOKEN_KEY, data.token);
         localStorage.setItem(USER_KEY, JSON.stringify(data.user));
         setSession({ token: data.token, user: data.user });
         setUser(data.user);
         return { success: true };
       }
-    } catch (apiError) {
-      console.warn('API login failed, falling back to localStorage:', apiError);
-    }
 
-    // Fallback to localStorage-based authentication
-    try {
-      const { loginUser, DEMO_USERS } = await import('@/lib/auth');
-      
-      // Initialize demo users if not exists
-      const usersJson = localStorage.getItem('wis_users');
-      if (!usersJson) {
-        localStorage.setItem('wis_users', JSON.stringify(DEMO_USERS));
-      }
-
-      const result = loginUser(email, password);
-      
-      if (result.success && result.session) {
-        // Create a fake token for localStorage mode
-        const token = `localStorage_${Date.now()}_${result.session.userId}`;
-        const user: User = {
-          id: result.session.userId,
-          email: result.session.email,
-          name: result.session.name,
-          role: result.session.role,
-          company: result.session.company,
-          department: result.session.department,
-          avatar: result.session.avatar,
-          joinDate: new Date().toISOString().split('T')[0],
-          status: 'active',
-        };
-        
-        localStorage.setItem(TOKEN_KEY, token);
-        localStorage.setItem(USER_KEY, JSON.stringify(user));
-        setSession({ token, user });
-        setUser(user);
-        return { success: true };
-      }
-
+      // Login failed
       return {
         success: false,
-        error: result.error || 'Email hoặc mật khẩu không đúng',
+        error: data.message || 'Email hoặc mật khẩu không đúng',
       };
     } catch (error) {
-      console.error('LocalStorage login error:', error);
+      console.error('Login error:', error);
       return {
         success: false,
-        error: 'Đã xảy ra lỗi khi đăng nhập',
+        error: 'Không thể kết nối với server. Đảm bảo backend đang chạy tại http://localhost:5000',
       };
     }
   };
@@ -164,109 +128,70 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const hasPermission = (permission: Permission): boolean => {
     if (!user) return false;
     
-    // Get user's role level
-    const userRoleLevel = ROLE_HIERARCHY[user.role] || 0;
+    // Get the list of permissions for user's role
+    const rolePermissions = PERMISSIONS[user.role];
+    if (!rolePermissions) return false;
     
-    // Get required role level for this permission
-    const requiredRole = PERMISSIONS[permission];
-    if (!requiredRole) return false;
-    
-    const requiredLevel = ROLE_HIERARCHY[requiredRole] || 0;
-    
-    // User has permission if their role level is >= required level
-    return userRoleLevel >= requiredLevel;
+    // Check if the permission is in the list
+    return rolePermissions.includes(permission);
   };
 
   const updateProfile = async (data: { name: string; phone?: string }): Promise<{ success: boolean; error?: string }> => {
-    // Try API first
     try {
-      if (session?.token && !session.token.startsWith('localStorage_')) {
-        const response = await fetch(`${API_BASE}/api/auth/profile`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session.token}`,
-          },
-          body: JSON.stringify(data),
-        });
-
-        const result = await response.json();
-
-        if (response.ok && result.success && result.user) {
-          localStorage.setItem(USER_KEY, JSON.stringify(result.user));
-          setUser(result.user);
-          setSession({ ...session, user: result.user });
-          return { success: true };
-        }
+      if (!session?.token) {
+        return { success: false, error: 'Chưa đăng nhập' };
       }
-    } catch (apiError) {
-      console.warn('API update failed, using localStorage');
-    }
 
-    // Fallback to localStorage
-    try {
-      if (!user) return { success: false, error: 'Chưa đăng nhập' };
+      const response = await fetch(`${API_BASE}/api/auth/profile`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.token}`,
+        },
+        body: JSON.stringify(data),
+      });
 
-      const { updateUserProfile } = await import('@/lib/auth');
-      const result = updateUserProfile(user.id, data);
+      const result = await response.json();
 
-      if (result.success && result.user) {
-        const updatedUser: User = {
-          ...user,
-          name: result.user.name,
-          phone: result.user.phone,
-        };
-        localStorage.setItem(USER_KEY, JSON.stringify(updatedUser));
-        setUser(updatedUser);
-        if (session) {
-          setSession({ ...session, user: updatedUser });
-        }
+      if (response.ok && result.success && result.user) {
+        localStorage.setItem(USER_KEY, JSON.stringify(result.user));
+        setUser(result.user);
+        setSession({ ...session, user: result.user });
         return { success: true };
       }
 
-      return { success: false, error: result.error || 'Cập nhật thất bại' };
+      return { success: false, error: result.message || 'Cập nhật thất bại' };
     } catch (error) {
       console.error('Update profile error:', error);
-      return { success: false, error: 'Đã xảy ra lỗi' };
+      return { success: false, error: 'Không thể kết nối với server' };
     }
   };
 
   const changePassword = async (oldPassword: string, newPassword: string): Promise<{ success: boolean; error?: string }> => {
-    // Try API first
     try {
-      if (session?.token && !session.token.startsWith('localStorage_')) {
-        const response = await fetch(`${API_BASE}/api/auth/change-password`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session.token}`,
-          },
-          body: JSON.stringify({ oldPassword, newPassword }),
-        });
-
-        const result = await response.json();
-
-        if (response.ok) {
-          return { success: true };
-        }
+      if (!session?.token) {
+        return { success: false, error: 'Chưa đăng nhập' };
       }
-    } catch (apiError) {
-      console.warn('API change password failed, using localStorage');
-    }
 
-    // Fallback to localStorage
-    try {
-      if (!user) return { success: false, error: 'Chưa đăng nhập' };
+      const response = await fetch(`${API_BASE}/api/auth/change-password`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.token}`,
+        },
+        body: JSON.stringify({ oldPassword, newPassword }),
+      });
 
-      const { changeUserPassword } = await import('@/lib/auth');
-      const result = changeUserPassword(user.id, oldPassword, newPassword);
+      const result = await response.json();
 
-      return result.success
-        ? { success: true }
-        : { success: false, error: result.error || 'Đổi mật khẩu thất bại' };
+      if (response.ok && result.success) {
+        return { success: true };
+      }
+
+      return { success: false, error: result.message || 'Đổi mật khẩu thất bại' };
     } catch (error) {
       console.error('Change password error:', error);
-      return { success: false, error: 'Đã xảy ra lỗi' };
+      return { success: false, error: 'Không thể kết nối với server' };
     }
   };
 

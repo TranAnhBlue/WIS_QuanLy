@@ -92,6 +92,43 @@ function UsersPage() {
     },
   });
 
+  // Check permission - only group_admin can access
+  useEffect(() => {
+    console.log('🔍 Users Page - Permission Check:');
+    console.log('   isAuthenticated:', isAuthenticated);
+    console.log('   session:', !!session);
+    console.log('   currentUser:', currentUser);
+    console.log('   hasPermission("manage_users"):', hasPermission("manage_users"));
+    
+    if (!isAuthenticated || !session) {
+      console.log('❌ Not authenticated - redirecting to login');
+      navigate({ to: "/login" });
+      return;
+    }
+    
+    if (!hasPermission("manage_users")) {
+      console.log('❌ No permission - redirecting to 403');
+      navigate({ to: "/403" });
+      return;
+    }
+    
+    console.log('✅ Access granted - loading users');
+  }, [isAuthenticated, session, hasPermission, navigate]);
+
+  // Show loading while checking permissions
+  if (!isAuthenticated || !session) {
+    return null;
+  }
+
+  if (!hasPermission("manage_users")) {
+    return null;
+  }
+
+  // Load users from MongoDB API
+  useEffect(() => {
+    loadUsers();
+  }, [session?.token]);
+
   // Update departments when company changes
   useEffect(() => {
     const company = form.watch("company") as Company;
@@ -102,64 +139,34 @@ function UsersPage() {
         form.setValue("department", COMPANY_INFO[company].departments[0]);
       }
     }
-  }, [form.watch("company")]);
-
-  // Check permission - only group_admin can access
-  if (!isAuthenticated || !session || !hasPermission("manage_users")) {
-    navigate({ to: "/" });
-    return null;
-  }
-
-  // Load users from API or localStorage
-  useEffect(() => {
-    loadUsers();
-  }, []);
+  }, [form]);
 
   const loadUsers = async () => {
     try {
-      // Try to load from localStorage first (where auth stores users)
-      const storedUsers = localStorage.getItem('wis_users');
-      if (storedUsers) {
-        const parsedUsers = JSON.parse(storedUsers);
-        // Transform to ApiUser format
-        const apiUsers: ApiUser[] = parsedUsers.map((u: any) => ({
-          id: u.id,
-          email: u.email,
-          name: u.name,
-          role: u.role,
-          company: u.company,
-          department: u.department,
-          phone: u.phone || '',
-          avatar: u.avatar,
-          joinDate: u.joinDate || new Date().toISOString(),
-          status: u.status || 'active',
-          createdAt: u.createdAt || new Date().toISOString(),
-          updatedAt: u.updatedAt || new Date().toISOString(),
-        }));
-        setUsers(apiUsers);
+      if (!session?.token) {
+        message.error('Phiên đăng nhập không hợp lệ');
         return;
       }
 
-      // Fallback: Try API if available (for future when API works)
-      if (session?.token) {
-        const response = await fetch('/api/users', {
-          headers: {
-            'Authorization': `Bearer ${session.token}`,
-          },
-        });
+      // Call Backend Node.js API (không phải Nitro API)
+      const API_BASE = 'http://localhost:5000';
+      const response = await fetch(`${API_BASE}/api/users`, {
+        headers: {
+          'Authorization': `Bearer ${session.token}`,
+        },
+      });
 
-        const data = await response.json();
+      const data = await response.json();
 
-        if (response.ok && data.success) {
-          setUsers(data.users);
-        } else {
-          console.error('Failed to load users:', data.error);
-          message.error('Không thể tải danh sách người dùng');
-        }
+      if (response.ok && data.success) {
+        setUsers(data.users);
+      } else {
+        console.error('Failed to load users:', data.message || data.error);
+        message.error(data.message || 'Không thể tải danh sách người dùng từ database');
       }
     } catch (error) {
       console.error('Error loading users:', error);
-      message.error('Lỗi kết nối khi tải danh sách người dùng');
+      message.error('Lỗi kết nối với backend API server. Đảm bảo server đang chạy tại http://localhost:5000');
     }
   };
 
@@ -236,75 +243,79 @@ function UsersPage() {
     setSuccess("");
 
     try {
-      // Get current users from localStorage
-      const storedUsers = localStorage.getItem('wis_users');
-      if (!storedUsers) {
-        message.error("Chưa có dữ liệu người dùng");
+      if (!session?.token) {
+        message.error("Phiên đăng nhập không hợp lệ");
         return;
       }
 
-      const allUsers = JSON.parse(storedUsers);
+      const API_BASE = 'http://localhost:5000';
 
       if (editingUser) {
-        // Update existing user
-        const updatedUsers = allUsers.map((u: any) => {
-          if (u.id === editingUser.id) {
-            return {
-              ...u,
-              name: data.name,
-              role: data.role,
-              company: data.company,
-              department: data.department,
-              phone: data.phone,
-              status: data.status,
-              password: data.password ? data.password : u.password, // Only update if new password provided
-              updatedAt: new Date().toISOString(),
-            };
-          }
-          return u;
+        // Update existing user via Backend API
+        const response = await fetch(`${API_BASE}/api/users/${editingUser.id}`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${session.token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            name: data.name,
+            role: data.role,
+            company: data.company,
+            department: data.department,
+            phone: data.phone,
+            status: data.status,
+            password: data.password || undefined, // Only send if provided
+          }),
         });
 
-        localStorage.setItem('wis_users', JSON.stringify(updatedUsers));
-        message.success(`Cập nhật người dùng "${data.name}" thành công!`);
-        await loadUsers();
-        setTimeout(() => setDialogOpen(false), 500);
+        const result = await response.json();
+
+        if (response.ok && result.success) {
+          message.success(`Cập nhật người dùng "${data.name}" thành công!`);
+          await loadUsers();
+          setTimeout(() => setDialogOpen(false), 500);
+        } else {
+          message.error(result.message || 'Cập nhật người dùng thất bại');
+        }
       } else {
-        // Create new user
+        // Create new user via Backend API
         if (!data.password) {
           message.error("Vui lòng nhập mật khẩu");
           return;
         }
 
-        // Check if email already exists
-        const emailExists = allUsers.some((u: any) => u.email === data.email);
-        if (emailExists) {
-          message.error("Email đã tồn tại trong hệ thống");
-          return;
+        const response = await fetch(`${API_BASE}/api/users`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            email: data.email,
+            password: data.password,
+            name: data.name,
+            role: data.role,
+            company: data.company,
+            department: data.department,
+            phone: data.phone,
+            status: data.status,
+          }),
+        });
+
+        const result = await response.json();
+
+        if (response.ok && result.success) {
+          message.success(`Tạo người dùng "${data.name}" thành công!`);
+          await loadUsers();
+          setTimeout(() => setDialogOpen(false), 500);
+        } else {
+          message.error(result.message || 'Tạo người dùng thất bại');
         }
-
-        const newUser = {
-          id: `user-${Date.now()}`,
-          email: data.email,
-          password: data.password, // In production, should be hashed
-          name: data.name,
-          role: data.role,
-          company: data.company,
-          department: data.department,
-          phone: data.phone || '',
-          status: data.status,
-          joinDate: new Date().toISOString(),
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        };
-
-        const updatedUsers = [...allUsers, newUser];
-        localStorage.setItem('wis_users', JSON.stringify(updatedUsers));
-        message.success(`Tạo người dùng "${data.name}" thành công!`);
-        await loadUsers();
-        setTimeout(() => setDialogOpen(false), 500);
       }
     } catch (err) {
-      message.error("Đã xảy ra lỗi. Vui lòng thử lại.");
+      console.error('Submit error:', err);
+      message.error("Lỗi kết nối với backend API server");
     }
   };
 
@@ -323,24 +334,34 @@ function UsersPage() {
     }
 
     try {
-      // Get current users from localStorage
-      const storedUsers = localStorage.getItem('wis_users');
-      if (!storedUsers) {
-        message.error("Không tìm thấy dữ liệu người dùng");
+      if (!session?.token) {
+        message.error("Phiên đăng nhập không hợp lệ");
         return;
       }
 
-      const allUsers = JSON.parse(storedUsers);
-      const updatedUsers = allUsers.filter((u: any) => u.id !== deletingUser.id);
-      
-      localStorage.setItem('wis_users', JSON.stringify(updatedUsers));
-      message.success(`Đã xóa người dùng "${deletingUser.name}" thành công`);
-      await loadUsers();
-      setDeleteDialogOpen(false);
-      setDeletingUser(null);
+      const API_BASE = 'http://localhost:5000';
+
+      // Call Backend API to delete user from MongoDB
+      const response = await fetch(`${API_BASE}/api/users/${deletingUser.id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${session.token}`,
+        },
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        message.success(`Đã xóa người dùng "${deletingUser.name}" thành công`);
+        await loadUsers();
+        setDeleteDialogOpen(false);
+        setDeletingUser(null);
+      } else {
+        message.error(result.message || 'Xóa người dùng thất bại');
+      }
     } catch (error) {
       console.error('Delete error:', error);
-      message.error('Đã xảy ra lỗi khi xóa người dùng');
+      message.error('Lỗi kết nối với backend API server');
     }
   };
 

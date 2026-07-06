@@ -22,6 +22,10 @@ import { Route as HrRouteImport } from './routes/hr'
 import { Route as ContractsRouteImport } from './routes/contracts'
 import { Route as ChatRouteImport } from './routes/chat'
 import { Route as CertificationsRouteImport } from './routes/certifications'
+import { Route as AttendanceManagementRouteImport } from './routes/attendance-management'
+import { Route as AttendanceRouteImport } from './routes/attendance'
+import { Route as R404RouteImport } from './routes/404'
+import { Route as R403RouteImport } from './routes/403'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as TrainingCourseIdRouteImport } from './routes/training.$courseId'
 
@@ -90,6 +94,26 @@ const CertificationsRoute = CertificationsRouteImport.update({
   path: '/certifications',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AttendanceManagementRoute = AttendanceManagementRouteImport.update({
+  id: '/attendance-management',
+  path: '/attendance-management',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AttendanceRoute = AttendanceRouteImport.update({
+  id: '/attendance',
+  path: '/attendance',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const R404Route = R404RouteImport.update({
+  id: '/404',
+  path: '/404',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const R403Route = R403RouteImport.update({
+  id: '/403',
+  path: '/403',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -103,6 +127,10 @@ const TrainingCourseIdRoute = TrainingCourseIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/403': typeof R403Route
+  '/404': typeof R404Route
+  '/attendance': typeof AttendanceRoute
+  '/attendance-management': typeof AttendanceManagementRoute
   '/certifications': typeof CertificationsRoute
   '/chat': typeof ChatRoute
   '/contracts': typeof ContractsRoute
@@ -120,6 +148,10 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/403': typeof R403Route
+  '/404': typeof R404Route
+  '/attendance': typeof AttendanceRoute
+  '/attendance-management': typeof AttendanceManagementRoute
   '/certifications': typeof CertificationsRoute
   '/chat': typeof ChatRoute
   '/contracts': typeof ContractsRoute
@@ -138,6 +170,10 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/403': typeof R403Route
+  '/404': typeof R404Route
+  '/attendance': typeof AttendanceRoute
+  '/attendance-management': typeof AttendanceManagementRoute
   '/certifications': typeof CertificationsRoute
   '/chat': typeof ChatRoute
   '/contracts': typeof ContractsRoute
@@ -157,6 +193,10 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/403'
+    | '/404'
+    | '/attendance'
+    | '/attendance-management'
     | '/certifications'
     | '/chat'
     | '/contracts'
@@ -174,6 +214,10 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/403'
+    | '/404'
+    | '/attendance'
+    | '/attendance-management'
     | '/certifications'
     | '/chat'
     | '/contracts'
@@ -191,6 +235,10 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/403'
+    | '/404'
+    | '/attendance'
+    | '/attendance-management'
     | '/certifications'
     | '/chat'
     | '/contracts'
@@ -209,6 +257,10 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  R403Route: typeof R403Route
+  R404Route: typeof R404Route
+  AttendanceRoute: typeof AttendanceRoute
+  AttendanceManagementRoute: typeof AttendanceManagementRoute
   CertificationsRoute: typeof CertificationsRoute
   ChatRoute: typeof ChatRoute
   ContractsRoute: typeof ContractsRoute
@@ -317,6 +369,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CertificationsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/attendance-management': {
+      id: '/attendance-management'
+      path: '/attendance-management'
+      fullPath: '/attendance-management'
+      preLoaderRoute: typeof AttendanceManagementRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/attendance': {
+      id: '/attendance'
+      path: '/attendance'
+      fullPath: '/attendance'
+      preLoaderRoute: typeof AttendanceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/404': {
+      id: '/404'
+      path: '/404'
+      fullPath: '/404'
+      preLoaderRoute: typeof R404RouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/403': {
+      id: '/403'
+      path: '/403'
+      fullPath: '/403'
+      preLoaderRoute: typeof R403RouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -348,6 +428,10 @@ const TrainingRouteWithChildren = TrainingRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  R403Route: R403Route,
+  R404Route: R404Route,
+  AttendanceRoute: AttendanceRoute,
+  AttendanceManagementRoute: AttendanceManagementRoute,
   CertificationsRoute: CertificationsRoute,
   ChatRoute: ChatRoute,
   ContractsRoute: ContractsRoute,

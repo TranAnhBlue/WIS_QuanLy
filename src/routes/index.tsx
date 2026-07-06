@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import { message } from "antd";
 import { useAuth } from "@/contexts/AuthContext";
-import { DEPARTMENT_INFO } from "@/lib/permissions";
+import { DEPARTMENT_INFO, type Role, type Company, type Department } from "@/lib/permissions";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -23,51 +23,238 @@ export const Route = createFileRoute("/")({
   component: DashboardPage,
 });
 
-type ModuleItem = { id: string; label: string; icon: typeof LayoutDashboard; badge?: string };
+type ModuleItem = { 
+  id: string; 
+  label: string; 
+  icon: typeof LayoutDashboard; 
+  badge?: string;
+  requiresPermission?: string;
+  minRole?: Role;
+  roles?: Role[];
+  companies?: Company[]; // Module chỉ hiển thị cho các công ty này
+  departments?: Department[]; // Module chỉ hiển thị cho các phòng ban này
+};
 
-const MODULES: { group: string; items: ModuleItem[] }[] = [
+type ModuleGroup = {
+  group: string;
+  items: ModuleItem[];
+  hiddenForRoles?: Role[]; // Group ẩn với các roles này
+};
+
+// Helper function để kiểm tra xem một module có được hiển thị cho user hiện tại không
+function isModuleVisible(
+  item: ModuleItem, 
+  userRole: Role, 
+  userCompany: Company,
+  userDepartment: Department,
+  hasPermissionFn: (permission: string) => boolean
+): boolean {
+  // CEO và Admin có thể thấy tất cả
+  if (userRole === "group_ceo" || userRole === "group_director" || userRole === "group_admin") {
+    return true;
+  }
+  
+  // Company CEO và Deputy có thể thấy hầu hết (trừ system settings)
+  if ((userRole === "company_ceo" || userRole === "company_deputy") && item.id !== "settings") {
+    return true;
+  }
+  
+  // Kiểm tra company - nếu module chỉ dành cho công ty cụ thể
+  if (item.companies && !item.companies.includes(userCompany)) {
+    return false;
+  }
+  
+  // Kiểm tra department - nếu module chỉ dành cho phòng ban cụ thể
+  if (item.departments && !item.departments.includes(userDepartment)) {
+    return false;
+  }
+  
+  // Kiểm tra permission nếu có
+  if (item.requiresPermission && !hasPermissionFn(item.requiresPermission)) {
+    return false;
+  }
+  
+  // Kiểm tra minRole nếu có
+  if (item.minRole) {
+    const roleHierarchy: Record<Role, number> = {
+      intern: 10, staff: 20, specialist: 30, senior_specialist: 40, team_leader: 50,
+      dept_deputy: 60, dept_manager: 70, company_deputy: 75, company_ceo: 80,
+      group_admin: 90, group_director: 95, group_ceo: 100,
+    };
+    if (roleHierarchy[userRole] < roleHierarchy[item.minRole]) {
+      return false;
+    }
+  }
+  
+  // Kiểm tra roles cụ thể nếu có
+  if (item.roles && !item.roles.includes(userRole)) {
+    return false;
+  }
+  
+  return true;
+}
+
+const MODULES: ModuleGroup[] = [
   {
     group: "Tổng quan",
     items: [
-      { id: "dashboard", label: "Dashboard CEO", icon: LayoutDashboard },
+      { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
       { id: "chat", label: "Chat nội bộ", icon: MessagesSquare, badge: "12" },
-      { id: "notifications", label: "Thông báo", icon: Bell, badge: "5" },
+      { 
+        id: "notifications", 
+        label: "Thông báo", 
+        icon: Bell, 
+        badge: "5"
+      },
+      { 
+        id: "attendance", 
+        label: "Chấm công", 
+        icon: Clock
+      },
     ],
   },
   {
     group: "Kinh doanh",
+    hiddenForRoles: ["group_admin"], // Admin không thấy group này
     items: [
-      { id: "crm", label: "CRM & Khách hàng", icon: Users },
-      { id: "quotations", label: "Báo giá", icon: FileText },
-      { id: "contracts", label: "Hợp đồng", icon: FileSignature },
-      { id: "projects", label: "Dự án", icon: FolderKanban, badge: "27" },
+      { 
+        id: "crm", 
+        label: "CRM & Khách hàng", 
+        icon: Users,
+        requiresPermission: "view_customers"
+      },
+      { 
+        id: "quotations", 
+        label: "Báo giá", 
+        icon: FileText,
+        requiresPermission: "view_quotations"
+      },
+      { 
+        id: "contracts", 
+        label: "Hợp đồng", 
+        icon: FileSignature,
+        requiresPermission: "view_contracts"
+      },
+      { 
+        id: "projects", 
+        label: "Dự án", 
+        icon: FolderKanban, 
+        badge: "27",
+        requiresPermission: "view_projects"
+      },
     ],
   },
   {
     group: "Nghiệp vụ",
+    hiddenForRoles: ["group_admin"], // Admin không thấy group này
     items: [
-      { id: "certifications", label: "Phạm vi tiêu chuẩn quy chuẩn", icon: BadgeCheck },
-      { id: "training", label: "Đào tạo", icon: GraduationCap },
-      { id: "science", label: "Nhiệm vụ KH", icon: FlaskConical },
-      { id: "legal", label: "Bảo hộ", icon: Scale },
-      { id: "vietgap", label: "VietGAP", icon: Leaf },
+      { 
+        id: "certifications", 
+        label: "Chứng nhận ISO", 
+        icon: BadgeCheck,
+        requiresPermission: "view_certifications",
+        companies: ["WCERT"], // Chỉ WCERT mới có chứng nhận ISO
+        departments: ["WCERT_CERT", "WCERT_AUDIT", "WCERT_TRAINING"]
+      },
+      { 
+        id: "training", 
+        label: "Đào tạo", 
+        icon: GraduationCap,
+        requiresPermission: "view_training",
+        companies: ["SCT_VIET", "WCERT"], // SCT và WCERT có đào tạo
+        departments: ["SCT_TRAINING", "WCERT_TRAINING"]
+      },
+      { 
+        id: "science", 
+        label: "Nhiệm vụ KH", 
+        icon: FlaskConical,
+        requiresPermission: "view_science_missions",
+        companies: ["SCT_VIET"], // Chỉ SCT có nhiệm vụ KH
+        departments: ["SCT_SCIENCE"] // Phòng 302
+      },
+      { 
+        id: "legal", 
+        label: "Bảo hộ & Pháp lý", 
+        icon: Scale,
+        requiresPermission: "view_legal",
+        companies: ["SCT_VIET", "ICT_VIET"], // SCT và ICT có pháp lý
+        departments: ["SCT_LEGAL", "ICT_ADMIN"] // Bình ở SCT, team legal ở ICT
+      },
+      { 
+        id: "vietgap", 
+        label: "VietGAP", 
+        icon: Leaf,
+        requiresPermission: "view_vietgap",
+        companies: ["ICT_VIET"], // Chỉ ICT có VietGAP
+        departments: ["ICT_VIETGAP", "ICT_ORGANIC", "ICT_ADMIN"]
+      },
     ],
   },
   {
     group: "Tổ chức",
+    hiddenForRoles: ["group_admin"], // Admin không thấy group này
     items: [
-      { id: "hrm", label: "Nhân sự", icon: UserCog },
-      { id: "kpi", label: "KPI", icon: Target },
-      { id: "rewards", label: "Tích thưởng", icon: Award, badge: "NEW" },
-      { id: "approvals", label: "Duyệt", icon: CheckCircle2, badge: "8" },
-      { id: "documents", label: "Tài liệu", icon: FileBox },
+      { 
+        id: "hrm", 
+        label: "Nhân sự", 
+        icon: UserCog,
+        requiresPermission: "view_hr"
+      },
+      { 
+        id: "kpi", 
+        label: "KPI", 
+        icon: Target,
+        requiresPermission: "view_kpi"
+      },
+      { 
+        id: "rewards", 
+        label: "Tích thưởng", 
+        icon: Award, 
+        badge: "NEW",
+        requiresPermission: "view_rewards"
+      },
+      { 
+        id: "approvals", 
+        label: "Duyệt", 
+        icon: CheckCircle2, 
+        badge: "8",
+        minRole: "team_leader"
+      },
+      { 
+        id: "documents", 
+        label: "Tài liệu", 
+        icon: FileBox,
+        requiresPermission: "view_documents"
+      },
     ],
   },
   {
     group: "Hệ thống",
     items: [
-      { id: "ai", label: "AI Assistant", icon: Sparkles },
-      { id: "settings", label: "Cài đặt", icon: Settings },
+      { 
+        id: "users", 
+        label: "Quản lý người dùng", 
+        icon: Users,
+        requiresPermission: "manage_users"
+      },
+      { 
+        id: "attendance-management", 
+        label: "Quản lý chấm công", 
+        icon: Clock,
+        roles: ["group_admin", "group_ceo", "group_director", "company_ceo", "company_deputy", "dept_manager"]
+      },
+      { 
+        id: "ai", 
+        label: "AI Assistant", 
+        icon: Sparkles,
+        minRole: "specialist"
+      },
+      { 
+        id: "settings", 
+        label: "Cài đặt", 
+        icon: Settings,
+        requiresPermission: "manage_settings"
+      },
     ],
   },
 ];
@@ -142,6 +329,18 @@ function DashboardPage() {
     return null;
   }
 
+  // Helper function to get dashboard title based on role
+  const getDashboardTitle = (role: Role) => {
+    if (role === "group_ceo" || role === "group_director") return "Dashboard CEO";
+    if (role === "company_ceo" || role === "company_deputy") return "Dashboard Giám đốc";
+    if (role === "dept_manager" || role === "dept_deputy") return "Dashboard Phòng ban";
+    if (role === "team_leader") return "Dashboard Team";
+    if (role === "group_admin") return "Dashboard Hệ thống";
+    return "Dashboard";
+  };
+
+  const dashboardTitle = getDashboardTitle(user.role);
+
   const handleLogout = () => {
     logout();
     message.success("Đã đăng xuất thành công!");
@@ -195,65 +394,95 @@ function DashboardPage() {
         )}
 
         <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-4">
-          {MODULES.map((group) => (
-            <div key={group.group}>
-              {!collapsed && (
-                <div className="px-3 mb-1.5 text-[10px] uppercase tracking-wider text-muted-foreground/70 font-medium">
-                  {group.group}
-                </div>
-              )}
-              <ul className="space-y-0.5">
-                {group.items.map((item) => {
-                  const Icon = item.icon;
-                  const isActive = active === item.id;
-                  const routeMap: Record<string, string> = { chat: "/chat", training: "/training", hrm: "/hr", rewards: "/rewards", certifications: "/certifications", projects: "/projects", quotations: "/quotations", contracts: "/contracts" };
-                  const to = routeMap[item.id];
-                  const cls = `w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm transition relative ${
-                    isActive
-                      ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                      : "text-sidebar-foreground/80 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
-                  }`;
-                  const inner = (
-                    <>
-                      {isActive && (
-                        <span className="absolute left-0 top-1.5 bottom-1.5 w-0.5 bg-primary rounded-r" />
-                      )}
-                      <Icon className="size-4 shrink-0" />
-                      {!collapsed && (
-                        <>
-                          <span className="flex-1 text-left truncate">{item.label}</span>
-                          {item.badge && (
-                            <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${
-                              isActive ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
-                            }`}>
-                              {item.badge}
-                            </span>
-                          )}
-                        </>
-                      )}
-                    </>
-                  );
-                  return (
-                    <li key={item.id}>
-                      {to ? (
-                        <Link to={to} className={cls} title={collapsed ? item.label : undefined}>
-                          {inner}
-                        </Link>
-                      ) : (
-                        <button
-                          onClick={() => setActive(item.id)}
-                          className={cls}
-                          title={collapsed ? item.label : undefined}
-                        >
-                          {inner}
-                        </button>
-                      )}
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          ))}
+          {MODULES.map((group) => {
+            // Check if group is hidden for current user role
+            if (group.hiddenForRoles && group.hiddenForRoles.includes(user.role)) {
+              return null;
+            }
+            
+            // Filter items based on user role, company, department and permissions
+            const visibleItems = group.items.filter(item => {
+              // hasPermission from useAuth returns a function, so we pass it directly
+              return isModuleVisible(item, user.role, user.company, user.department, hasPermission);
+            });
+            
+            // Don't show group if no items are visible
+            if (visibleItems.length === 0) {
+              return null;
+            }
+            
+            return (
+              <div key={group.group}>
+                {!collapsed && (
+                  <div className="px-3 mb-1.5 text-[10px] uppercase tracking-wider text-muted-foreground/70 font-medium">
+                    {group.group}
+                  </div>
+                )}
+                <ul className="space-y-0.5">
+                  {visibleItems.map((item) => {
+                    const Icon = item.icon;
+                    const isActive = active === item.id;
+                    const routeMap: Record<string, string> = { 
+                      chat: "/chat", 
+                      training: "/training", 
+                      hrm: "/hr", 
+                      rewards: "/reward", 
+                      certifications: "/certifications", 
+                      projects: "/projects", 
+                      quotations: "/quotations", 
+                      contracts: "/contracts",
+                      users: "/users",
+                      attendance: "/attendance",
+                      "attendance-management": "/attendance-management"
+                    };
+                    const to = routeMap[item.id];
+                    const cls = `w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm transition relative ${
+                      isActive
+                        ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                        : "text-sidebar-foreground/80 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+                    }`;
+                    const inner = (
+                      <>
+                        {isActive && (
+                          <span className="absolute left-0 top-1.5 bottom-1.5 w-0.5 bg-primary rounded-r" />
+                        )}
+                        <Icon className="size-4 shrink-0" />
+                        {!collapsed && (
+                          <>
+                            <span className="flex-1 text-left truncate">{item.label}</span>
+                            {item.badge && (
+                              <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${
+                                isActive ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                              }`}>
+                                {item.badge}
+                              </span>
+                            )}
+                          </>
+                        )}
+                      </>
+                    );
+                    return (
+                      <li key={item.id}>
+                        {to ? (
+                          <Link to={to} className={cls} title={collapsed ? item.label : undefined}>
+                            {inner}
+                          </Link>
+                        ) : (
+                          <button
+                            onClick={() => setActive(item.id)}
+                            className={cls}
+                            title={collapsed ? item.label : undefined}
+                          >
+                            {inner}
+                          </button>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            );
+          })}
         </nav>
 
         <div className={`border-t border-sidebar-border p-3 ${collapsed ? "flex justify-center" : ""}`}>
@@ -326,7 +555,7 @@ function DashboardPage() {
             <Building2 className="size-4 text-muted-foreground" />
             <span className="text-muted-foreground">Tập đoàn</span>
             <span className="text-muted-foreground">/</span>
-            <span className="font-medium">Dashboard CEO</span>
+            <span className="font-medium">{dashboardTitle}</span>
           </div>
 
           <div className="flex-1 max-w-md mx-4">
@@ -384,45 +613,48 @@ function DashboardPage() {
             </div>
           </div>
 
-          {/* Revenue per company */}
-          <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {REVENUE.map((r, idx) => (
-              <div
-                key={r.company}
-                className="kpi-tile kpi-tile-hover p-5 animate-count-up"
-                style={{ animationDelay: `${idx * 80}ms` }}
-              >
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <span className="size-2 rounded-full" style={{ background: COMPANIES[idx + 1].color }} />
-                    <span className="text-sm font-medium">{r.company}</span>
+          {/* Revenue per company - Only visible for management levels */}
+          {(user.role === "group_ceo" || user.role === "group_director" || user.role === "group_admin" || 
+            user.role === "company_ceo" || user.role === "company_deputy") && (
+            <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {REVENUE.map((r, idx) => (
+                <div
+                  key={r.company}
+                  className="kpi-tile kpi-tile-hover p-5 animate-count-up"
+                  style={{ animationDelay: `${idx * 80}ms` }}
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <span className="size-2 rounded-full" style={{ background: COMPANIES[idx + 1].color }} />
+                      <span className="text-sm font-medium">{r.company}</span>
+                    </div>
+                    <span className={`flex items-center gap-1 text-xs font-mono px-2 py-0.5 rounded ${
+                      r.trend === "up" ? "text-success bg-success/10" : "text-destructive bg-destructive/10"
+                    }`}>
+                      {r.trend === "up" ? <TrendingUp className="size-3" /> : <TrendingDown className="size-3" />}
+                      {r.delta > 0 ? "+" : ""}{r.delta}%
+                    </span>
                   </div>
-                  <span className={`flex items-center gap-1 text-xs font-mono px-2 py-0.5 rounded ${
-                    r.trend === "up" ? "text-success bg-success/10" : "text-destructive bg-destructive/10"
-                  }`}>
-                    {r.trend === "up" ? <TrendingUp className="size-3" /> : <TrendingDown className="size-3" />}
-                    {r.delta > 0 ? "+" : ""}{r.delta}%
-                  </span>
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="font-display text-3xl font-semibold tabular-nums">{r.value.toLocaleString("vi-VN")}</span>
+                    <span className="text-sm text-muted-foreground">triệu ₫</span>
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-2">{r.desc}</div>
+                  {/* Mini sparkline */}
+                  <svg viewBox="0 0 100 24" className="w-full h-6 mt-3" preserveAspectRatio="none">
+                    <polyline
+                      points={r.trend === "up"
+                        ? "0,20 12,18 24,16 36,14 48,12 60,10 72,7 84,5 100,3"
+                        : "0,8 12,10 24,9 36,13 48,12 60,15 72,14 84,18 100,20"}
+                      fill="none"
+                      stroke={COMPANIES[idx + 1].color}
+                      strokeWidth="1.5"
+                    />
+                  </svg>
                 </div>
-                <div className="flex items-baseline gap-1.5">
-                  <span className="font-display text-3xl font-semibold tabular-nums">{r.value.toLocaleString("vi-VN")}</span>
-                  <span className="text-sm text-muted-foreground">triệu ₫</span>
-                </div>
-                <div className="text-xs text-muted-foreground mt-2">{r.desc}</div>
-                {/* Mini sparkline */}
-                <svg viewBox="0 0 100 24" className="w-full h-6 mt-3" preserveAspectRatio="none">
-                  <polyline
-                    points={r.trend === "up"
-                      ? "0,20 12,18 24,16 36,14 48,12 60,10 72,7 84,5 100,3"
-                      : "0,8 12,10 24,9 36,13 48,12 60,15 72,14 84,18 100,20"}
-                    fill="none"
-                    stroke={COMPANIES[idx + 1].color}
-                    strokeWidth="1.5"
-                  />
-                </svg>
-              </div>
-            ))}
-          </section>
+              ))}
+            </section>
+          )}
 
           {/* KPI tiles */}
           <section className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
@@ -517,49 +749,73 @@ function DashboardPage() {
               </table>
             </div>
 
-            {/* AI Assistant */}
-            <div className="surface-card overflow-hidden flex flex-col">
-              <div className="px-5 py-4 border-b border-border flex items-center gap-2">
-                <div className="size-7 rounded-md bg-gradient-to-br from-primary to-chart-5 grid place-items-center">
-                  <Sparkles className="size-3.5 text-primary-foreground" />
+            {/* AI Assistant - Only for specialist and above */}
+            {(user.role !== "intern" && user.role !== "staff") && (
+              <div className="surface-card overflow-hidden flex flex-col">
+                <div className="px-5 py-4 border-b border-border flex items-center gap-2">
+                  <div className="size-7 rounded-md bg-gradient-to-br from-primary to-chart-5 grid place-items-center">
+                    <Sparkles className="size-3.5 text-primary-foreground" />
+                  </div>
+                  <div className="flex-1">
+                    <h2 className="font-display font-semibold text-sm">
+                      {user.role === "group_ceo" || user.role === "group_director" ? "CEO Assistant" : 
+                       user.role === "company_ceo" || user.role === "company_deputy" ? "GĐ Assistant" :
+                       "AI Assistant"}
+                    </h2>
+                    <p className="text-[10px] text-muted-foreground">
+                      {user.role === "group_ceo" || user.role === "group_director" ? "Truy vấn dữ liệu tập đoàn bằng tiếng Việt" :
+                       user.role === "company_ceo" || user.role === "company_deputy" ? "Truy vấn dữ liệu công ty bằng tiếng Việt" :
+                       "Hỗ trợ thông minh cho công việc"}
+                    </p>
+                  </div>
+                  <span className="size-1.5 rounded-full bg-success animate-pulse-dot" />
                 </div>
-                <div className="flex-1">
-                  <h2 className="font-display font-semibold text-sm">CEO Assistant</h2>
-                  <p className="text-[10px] text-muted-foreground">Truy vấn dữ liệu tập đoàn bằng tiếng Việt</p>
-                </div>
-                <span className="size-1.5 rounded-full bg-success animate-pulse-dot" />
-              </div>
 
-              <div className="flex-1 p-4 space-y-3 text-sm">
-                <div className="text-muted-foreground text-xs">Câu hỏi gợi ý hôm nay:</div>
-                {[
-                  "Công ty nào doanh thu thấp nhất tháng này?",
-                  "Có bao nhiêu dự án ISO đang trễ?",
-                  "Khách hàng nào sắp tái chứng nhận trong 30 ngày?",
-                  "KPI phòng ban nào thấp nhất quý này?",
-                ].map((q) => (
-                  <button
-                    key={q}
-                    className="w-full text-left text-xs px-3 py-2.5 rounded-md bg-surface border border-border hover:border-primary/40 hover:bg-surface-2 transition group flex items-start gap-2"
-                  >
-                    <span className="text-primary mt-0.5">▸</span>
-                    <span className="flex-1">{q}</span>
-                  </button>
-                ))}
-              </div>
+                <div className="flex-1 p-4 space-y-3 text-sm">
+                  <div className="text-muted-foreground text-xs">Câu hỏi gợi ý hôm nay:</div>
+                  {(user.role === "group_ceo" || user.role === "group_director") ? [
+                    "Công ty nào doanh thu thấp nhất tháng này?",
+                    "Có bao nhiêu dự án ISO đang trễ?",
+                    "Khách hàng nào sắp tái chứng nhận trong 30 ngày?",
+                    "KPI phòng ban nào thấp nhất quý này?",
+                  ] : (user.role === "company_ceo" || user.role === "company_deputy") ? [
+                    "Dự án nào của công ty đang chậm tiến độ?",
+                    "Nhân viên nào có KPI cao nhất tháng này?",
+                    "Khách hàng nào cần chăm sóc trong tuần này?",
+                    "Chi phí phòng ban nào vượt ngân sách?",
+                  ] : [
+                    "Nhiệm vụ nào tôi cần hoàn thành hôm nay?",
+                    "Lịch họp của tôi tuần này như thế nào?",
+                    "Có email nào cần phản hồi khẩn cấp?",
+                    "Tiến độ dự án của team như thế nào?",
+                  ].map((q) => (
+                    <button
+                      key={q}
+                      className="w-full text-left text-xs px-3 py-2.5 rounded-md bg-surface border border-border hover:border-primary/40 hover:bg-surface-2 transition group flex items-start gap-2"
+                    >
+                      <span className="text-primary mt-0.5">▸</span>
+                      <span className="flex-1">{q}</span>
+                    </button>
+                  ))}
+                </div>
 
-              <div className="p-3 border-t border-border">
-                <div className="relative">
-                  <input
-                    placeholder="Hỏi bất kỳ điều gì về tập đoàn…"
-                    className="w-full h-10 pl-3 pr-10 rounded-md bg-surface border border-border text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-                  />
-                  <button className="absolute right-1.5 top-1.5 size-7 grid place-items-center rounded bg-primary text-primary-foreground hover:opacity-90 transition">
-                    <Send className="size-3.5" />
-                  </button>
+                <div className="p-3 border-t border-border">
+                  <div className="relative">
+                    <input
+                      placeholder={
+                        user.role === "group_ceo" || user.role === "group_director" ? "Hỏi bất kỳ điều gì về tập đoàn…" :
+                        user.role === "company_ceo" || user.role === "company_deputy" ? "Hỏi về công ty…" :
+                        "Hỏi về công việc…"
+                      }
+                      className="w-full h-10 pl-3 pr-10 rounded-md bg-surface border border-border text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                    <button className="absolute right-1.5 top-1.5 size-7 grid place-items-center rounded bg-primary text-primary-foreground hover:opacity-90 transition">
+                      <Send className="size-3.5" />
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
           </section>
 
           {/* Activity feed */}

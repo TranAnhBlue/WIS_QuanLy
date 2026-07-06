@@ -13,22 +13,77 @@ import appCss from "../style.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { AuthProvider } from "../contexts/AuthContext";
 
+import { FileQuestion, Home, ArrowLeft } from "lucide-react";
+
 function NotFoundComponent() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
-      <div className="max-w-md text-center">
-        <h1 className="text-7xl font-bold text-foreground">404</h1>
-        <h2 className="mt-4 text-xl font-semibold text-foreground">Page not found</h2>
-        <p className="mt-2 text-sm text-muted-foreground">
-          The page you're looking for doesn't exist or has been moved.
-        </p>
-        <div className="mt-6">
-          <Link
-            to="/"
-            className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-          >
-            Go home
-          </Link>
+      <div className="max-w-md w-full">
+        <div className="text-center">
+          {/* Icon */}
+          <div className="mx-auto w-20 h-20 rounded-full bg-blue-100 dark:bg-blue-900/20 flex items-center justify-center mb-6">
+            <FileQuestion className="w-10 h-10 text-blue-600 dark:text-blue-500" />
+          </div>
+
+          {/* Error Code */}
+          <div className="text-6xl font-bold text-blue-600 dark:text-blue-500 mb-2">
+            404
+          </div>
+
+          {/* Title */}
+          <h1 className="text-2xl font-bold mb-3">
+            Không tìm thấy trang
+          </h1>
+
+          {/* Description */}
+          <p className="text-muted-foreground mb-6">
+            Trang bạn đang tìm kiếm không tồn tại hoặc đã bị di chuyển. Vui lòng kiểm tra lại đường dẫn.
+          </p>
+
+          {/* Actions */}
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <a
+              href="javascript:history.back()"
+              className="inline-flex items-center justify-center gap-2 rounded-md border border-input bg-background px-4 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Quay lại
+            </a>
+            <Link
+              to="/"
+              className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+            >
+              <Home className="w-4 h-4" />
+              Về trang chủ
+            </Link>
+          </div>
+
+          {/* Popular Pages */}
+          <div className="mt-8 pt-6 border-t border-border">
+            <p className="text-sm text-muted-foreground mb-3">
+              <strong>Các trang phổ biến:</strong>
+            </p>
+            <div className="flex flex-wrap gap-2 justify-center">
+              <Link
+                to="/"
+                className="text-xs px-3 py-1 rounded-md bg-muted hover:bg-muted/80 transition-colors"
+              >
+                Dashboard
+              </Link>
+              <Link
+                to="/attendance"
+                className="text-xs px-3 py-1 rounded-md bg-muted hover:bg-muted/80 transition-colors"
+              >
+                Chấm công
+              </Link>
+              <Link
+                to="/profile"
+                className="text-xs px-3 py-1 rounded-md bg-muted hover:bg-muted/80 transition-colors"
+              >
+                Hồ sơ
+              </Link>
+            </div>
+          </div>
         </div>
       </div>
     </div>
