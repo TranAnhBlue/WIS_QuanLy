@@ -9,7 +9,8 @@ import {
 } from "lucide-react";
 import { message } from "antd";
 import { useAuth } from "@/contexts/AuthContext";
-import { DEPARTMENT_INFO, type Role, type Company, type Department } from "@/lib/permissions";
+import { DEPARTMENT_INFO, type Role, type Company, type Department, type Permission } from "@/lib/permissions";
+import { useChatUnreadCount } from "@/hooks/useChatUnreadCount";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -47,7 +48,7 @@ function isModuleVisible(
   userRole: Role, 
   userCompany: Company,
   userDepartment: Department,
-  hasPermissionFn: (permission: string) => boolean
+  hasPermissionFn: (permission: Permission) => boolean
 ): boolean {
   // CEO và Admin có thể thấy tất cả
   if (userRole === "group_ceo" || userRole === "group_director" || userRole === "group_admin") {
@@ -70,7 +71,7 @@ function isModuleVisible(
   }
   
   // Kiểm tra permission nếu có
-  if (item.requiresPermission && !hasPermissionFn(item.requiresPermission)) {
+  if (item.requiresPermission && !hasPermissionFn(item.requiresPermission as Permission)) {
     return false;
   }
   
@@ -99,7 +100,7 @@ const MODULES: ModuleGroup[] = [
     group: "Tổng quan",
     items: [
       { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
-      { id: "chat", label: "Chat nội bộ", icon: MessagesSquare, badge: "12" },
+      { id: "chat", label: "Chat nội bộ", icon: MessagesSquare },
       { 
         id: "notifications", 
         label: "Thông báo", 
@@ -300,6 +301,7 @@ const ACTIVITY = [
 function DashboardPage() {
   const navigate = useNavigate();
   const { session, user, isAuthenticated, isLoading, logout, hasPermission } = useAuth();
+  const { unreadCount } = useChatUnreadCount();
   const [collapsed, setCollapsed] = useState(false);
   const [active, setActive] = useState("dashboard");
   const [company, setCompany] = useState("group");
@@ -403,7 +405,7 @@ function DashboardPage() {
             // Filter items based on user role, company, department and permissions
             const visibleItems = group.items.filter(item => {
               // hasPermission from useAuth returns a function, so we pass it directly
-              return isModuleVisible(item, user.role, user.company, user.department, hasPermission);
+              return isModuleVisible(item, user.role, user.company as Company, user.department as Department, hasPermission);
             });
             
             // Don't show group if no items are visible
@@ -450,13 +452,19 @@ function DashboardPage() {
                         {!collapsed && (
                           <>
                             <span className="flex-1 text-left truncate">{item.label}</span>
-                            {item.badge && (
+                            {item.id === "chat" && unreadCount > 0 ? (
+                              <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${
+                                isActive ? "bg-primary text-primary-foreground" : "bg-destructive text-destructive-foreground"
+                              }`}>
+                                {unreadCount}
+                              </span>
+                            ) : item.badge ? (
                               <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${
                                 isActive ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
                               }`}>
                                 {item.badge}
                               </span>
-                            )}
+                            ) : null}
                           </>
                         )}
                       </>
@@ -498,7 +506,7 @@ function DashboardPage() {
                 <div className="min-w-0 flex-1">
                   <div className="text-xs font-medium truncate">{user.name}</div>
                   <div className="text-[10px] text-muted-foreground truncate">
-                    {DEPARTMENT_INFO[user.department]?.name || user.department}
+                    {DEPARTMENT_INFO[user.department as Department]?.name || user.department}
                   </div>
                 </div>
               )}

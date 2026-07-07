@@ -6,6 +6,7 @@ import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import Attendance from './models/Attendance.js';
 import User from './models/User.js';
+import chatRoutes from './routes/chatRoutes.js';
 
 dotenv.config();
 
@@ -597,6 +598,10 @@ app.get('/api/attendance/all', protect, async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 });
+
+// ==================== CHAT ENDPOINTS ====================
+// Use chat routes with authentication middleware
+app.use('/api/chat', protect, chatRoutes);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
