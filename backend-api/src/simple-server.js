@@ -168,8 +168,8 @@ app.get('/api/users', protect, async (req, res) => {
     
     // CEO sees all users except admin
     if (currentUser.role === 'group_ceo') {
-      query = { role: { $ne: 'admin' } };
-    } else if (currentUser.role !== 'admin') {
+      query = { role: { $ne: 'group_admin' } };
+    } else if (currentUser.role !== 'group_admin') {
       // Other roles cannot access this endpoint
       return res.status(403).json({ 
         success: false, 
@@ -207,15 +207,15 @@ app.get('/api/users/:id', protect, async (req, res) => {
   }
 });
 
-// Create user (Admin only)
+// Create user (Admin and CEO only)
 app.post('/api/users', protect, async (req, res) => {
   try {
     const currentUser = await User.findById(req.user.id);
     
-    if (currentUser.role !== 'admin') {
+    if (!['group_admin', 'group_ceo'].includes(currentUser.role)) {
       return res.status(403).json({ 
         success: false, 
-        message: 'Chỉ admin mới có thể tạo user' 
+        message: 'Bạn không có quyền tạo user' 
       });
     }
 
@@ -250,15 +250,15 @@ app.post('/api/users', protect, async (req, res) => {
   }
 });
 
-// Update user (Admin only)
+// Update user (Admin and CEO only)
 app.put('/api/users/:id', protect, async (req, res) => {
   try {
     const currentUser = await User.findById(req.user.id);
     
-    if (currentUser.role !== 'admin') {
+    if (!['group_admin', 'group_ceo'].includes(currentUser.role)) {
       return res.status(403).json({ 
         success: false, 
-        message: 'Chỉ admin mới có thể cập nhật user' 
+        message: 'Bạn không có quyền cập nhật user' 
       });
     }
 
@@ -284,15 +284,15 @@ app.put('/api/users/:id', protect, async (req, res) => {
   }
 });
 
-// Delete user (Admin only)
+// Delete user (Admin and CEO only)
 app.delete('/api/users/:id', protect, async (req, res) => {
   try {
     const currentUser = await User.findById(req.user.id);
     
-    if (currentUser.role !== 'admin') {
+    if (!['group_admin', 'group_ceo'].includes(currentUser.role)) {
       return res.status(403).json({ 
         success: false, 
-        message: 'Chỉ admin mới có thể xóa user' 
+        message: 'Bạn không có quyền xóa user' 
       });
     }
 
@@ -303,7 +303,7 @@ app.delete('/api/users/:id', protect, async (req, res) => {
     }
 
     // Prevent deleting admin
-    if (user.role === 'admin') {
+    if (user.role === 'group_admin') {
       return res.status(400).json({
         success: false,
         message: 'Không thể xóa admin',
@@ -479,16 +479,29 @@ app.get('/api/attendance/all', protect, async (req, res) => {
     
     // Build query
     let query = {};
+    let displayDate; // The actual date to display
     
     // Date filter (default to today)
     if (date) {
+      // Parse the date string as local Vietnam time, then create range
       const selectedDate = new Date(date);
       selectedDate.setHours(0, 0, 0, 0);
-      query.date = selectedDate;
+      displayDate = new Date(selectedDate);
+      
+      const nextDay = new Date(selectedDate);
+      nextDay.setDate(nextDay.getDate() + 1);
+      
+      query.date = { $gte: selectedDate, $lt: nextDay };
     } else {
+      // For today, use local time
       const today = new Date();
       today.setHours(0, 0, 0, 0);
-      query.date = today;
+      displayDate = new Date(today);
+      
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      
+      query.date = { $gte: today, $lt: tomorrow };
     }
 
     // Get all attendance records
@@ -539,7 +552,7 @@ app.get('/api/attendance/all', protect, async (req, res) => {
         company: user.company,
         department: user.department,
       },
-      date: query.date,
+      date: displayDate,
       status: 'absent',
       checkInTime: null,
       checkOutTime: null,
@@ -575,7 +588,7 @@ app.get('/api/attendance/all', protect, async (req, res) => {
 
     res.json({
       success: true,
-      date: query.date,
+      date: displayDate,
       stats,
       count: allRecords.length,
       attendance: allRecords,

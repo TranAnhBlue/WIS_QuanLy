@@ -597,7 +597,12 @@ function UsersPage() {
                         {user.status === "active" ? "Hoạt động" : "Không hoạt động"}
                       </Badge>
                     </TableCell>
-                    <TableCell>{typeof user.joinDate === 'string' ? user.joinDate : new Date(user.joinDate).toISOString().split('T')[0]}</TableCell>
+                    <TableCell>
+                      {typeof user.joinDate === 'string' 
+                        ? new Date(user.joinDate).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })
+                        : new Date(user.joinDate).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })
+                      }
+                    </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
                         <Button

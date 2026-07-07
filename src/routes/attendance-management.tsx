@@ -137,17 +137,19 @@ function AttendanceManagementPage() {
 
   const exportToCSV = () => {
     const headers = ["Họ tên", "Email", "Vai trò", "Công ty", "Phòng ban", "Giờ vào", "Giờ ra", "Giờ làm", "Trạng thái"];
-    const rows = filteredRecords.map(record => [
-      record.userId.name,
-      record.userId.email,
-      record.userId.role,
-      record.userId.company,
-      record.userId.department,
-      formatTime(record.checkInTime),
-      formatTime(record.checkOutTime),
-      `${record.workingHours}h`,
-      getStatusLabel(record.status),
-    ]);
+    const rows = filteredRecords
+      .filter(record => record.userId) // Filter out records with null userId
+      .map(record => [
+        record.userId.name,
+        record.userId.email,
+        record.userId.role,
+        record.userId.company,
+        record.userId.department,
+        formatTime(record.checkInTime),
+        formatTime(record.checkOutTime),
+        `${record.workingHours}h`,
+        getStatusLabel(record.status),
+      ]);
 
     const csvContent = [
       headers.join(","),
@@ -321,17 +323,18 @@ function AttendanceManagementPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredRecords.map((record, index) => (
+                    {filteredRecords
+                      .filter(record => record.userId) // Filter out records with null userId
+                      .map((record, index) => (
                         <tr key={record._id || index} className="border-b hover:bg-surface/50">
                           <td className="p-3">
-                            {/* Sửa tại đây: Thêm dấu ?. và hiển thị "Tài khoản đã xóa" nếu null */}
-                            <div className="font-medium">{record.userId?.name || "Tài khoản đã xóa"}</div>
-                            <div className="text-sm text-muted-foreground">{record.userId?.email || "—"}</div>
+                            <div className="font-medium">{record.userId.name}</div>
+                            <div className="text-sm text-muted-foreground">{record.userId.email}</div>
                           </td>
-                          <td className="p-3 text-sm">{record.userId?.role || "—"}</td>
+                          <td className="p-3 text-sm">{record.userId.role}</td>
                           <td className="p-3 text-sm">
-                            <div>{record.userId?.company || "—"}</div>
-                            <div className="text-xs text-muted-foreground">{record.userId?.department || "—"}</div>
+                            <div>{record.userId.company}</div>
+                            <div className="text-xs text-muted-foreground">{record.userId.department}</div>
                           </td>
                         <td className="p-3 font-mono text-sm">
                           {formatTime(record.checkInTime)}
