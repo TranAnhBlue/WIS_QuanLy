@@ -2,7 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect, useRef } from "react";
 import { 
   MessageSquare, Send, ArrowLeft, Users, Plus, Search,
-  MoreVertical, Check, CheckCheck, Paperclip, Smile, UserPlus, X
+  MoreVertical, Check, CheckCheck, Paperclip, Smile, UserPlus, X, Download, FileText, Image
 } from "lucide-react";
 import { message as antdMessage } from "antd";
 import { useAuth } from "@/contexts/AuthContext";
@@ -54,8 +54,20 @@ interface Message {
   conversation: string;
   sender: User;
   content: string;
-  type: "text" | "system";
+  type: "text" | "system" | "image" | "file";
+  fileUrl?: string;
+  fileName?: string;
+  fileSize?: number;
   readBy: Array<{ user: string; readAt: string }>;
+  reactions?: Array<{
+    user: {
+      _id: string;
+      name: string;
+      avatar?: string;
+    };
+    emoji: string;
+    createdAt: string;
+  }>;
   replyTo?: any;
   isDeleted: boolean;
   createdAt: string;
@@ -64,7 +76,7 @@ interface Message {
 
 function ChatPage() {
   const navigate = useNavigate();
-  const { session, user } = useAuth();
+  const { session, user, isLoading } = useAuth();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedConv, setSelectedConv] = useState<Conversation | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -72,7 +84,10 @@ function ChatPage() {
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterType, setFilterType] = useState<"all" | "direct" | "group">("all");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // New chat dialogs
   const [newChatDialogOpen, setNewChatDialogOpen] = useState(false);
@@ -83,15 +98,52 @@ function ChatPage() {
   const [groupDescription, setGroupDescription] = useState("");
   const [userSearchQuery, setUserSearchQuery] = useState("");
 
-  const API_BASE = "http://localhost:5000";
+  // Image viewer modal
+  const [imageViewerOpen, setImageViewerOpen] = useState(false);
+  const [viewingImageUrl, setViewingImageUrl] = useState("");
+  const [viewingImageName, setViewingImageName] = useState("");
 
-  // Load conversations
+  // Emoji reactions
+  const [hoveredMessageId, setHoveredMessageId] = useState<string | null>(null);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [showReactionsFor, setShowReactionsFor] = useState<string | null>(null); // Track which message reactions picker is open for
+
+  const API_BASE = "http://localhost:5000";
+  const QUICK_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
+  const EMOJI_LIST = [
+    '😀', '😃', '😄', '😁', '😅', '😂', '🤣', '😊', '😇', '🙂',
+    '😉', '😌', '😍', '🥰', '😘', '😗', '😙', '😚', '😋', '😛',
+    '😝', '😜', '🤪', '🤨', '🧐', '🤓', '😎', '🤩', '🥳', '😏',
+    '😒', '😞', '😔', '😟', '😕', '🙁', '😣', '😖', '😫', '😩',
+    '🥺', '😢', '😭', '😤', '😠', '😡', '🤬', '🤯', '😳', '🥵',
+    '🥶', '😱', '😨', '😰', '😥', '😓', '🤗', '🤔', '🤭', '🤫',
+    '🤥', '😶', '😐', '😑', '😬', '🙄', '😯', '😦', '😧', '😮',
+    '😲', '🥱', '😴', '🤤', '😪', '😵', '🤐', '🥴', '🤢', '🤮',
+    '🤧', '😷', '🤒', '🤕', '🤑', '🤠', '👍', '👎', '👏', '🙌',
+    '🤝', '🙏', '❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍',
+  ];
+
+  // Load conversations - wait for auth to finish loading
   useEffect(() => {
+    // Don't load if still loading auth or no session
+    if (isLoading) {
+      console.log('⏳ [Chat] Waiting for auth to load...');
+      return;
+    }
+    
+    if (!session?.token) {
+      console.log('⚠️ [Chat] No session found, redirecting to login...');
+      navigate({ to: '/login' });
+      return;
+    }
+
+    console.log('✅ [Chat] Auth loaded, starting conversation load...');
     loadConversations();
+    
     // Poll for new messages every 5 seconds
     const interval = setInterval(loadConversations, 5000);
     return () => clearInterval(interval);
-  }, []);
+  }, [isLoading, session?.token]);
 
   // Load messages when conversation selected
   useEffect(() => {
@@ -107,19 +159,72 @@ function ChatPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  // Close emoji picker and reactions picker when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (showEmojiPicker && !target.closest('.emoji-picker-container')) {
+        setShowEmojiPicker(false);
+      }
+      if (showReactionsFor && !target.closest('.reactions-picker-container')) {
+        setShowReactionsFor(null);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showEmojiPicker, showReactionsFor]);
+
   const loadConversations = async () => {
     try {
+      // Skip if no token (e.g., after logout)
+      if (!session?.token) {
+        console.log('⚠️ [Chat] No token available, skipping conversation load');
+        return;
+      }
+
+      console.log('🔍 [Chat] Loading conversations...', {
+        apiBase: API_BASE,
+        hasToken: !!session?.token,
+        url: `${API_BASE}/api/chat/conversations`
+      });
+      
       const response = await fetch(`${API_BASE}/api/chat/conversations`, {
         headers: {
           Authorization: `Bearer ${session?.token}`,
         },
       });
+      
+      console.log('📡 [Chat] Response status:', response.status);
+      
+      // Handle 401 Unauthorized - token expired
+      if (response.status === 401) {
+        console.error('❌ [Chat] Token expired or invalid');
+        antdMessage.error('Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại!');
+        // Redirect to login after 2 seconds
+        setTimeout(() => {
+          navigate({ to: '/login' });
+        }, 2000);
+        return;
+      }
+      
       const data = await response.json();
+      console.log('📦 [Chat] Response data:', {
+        success: data.success,
+        count: data.conversations?.length,
+        conversations: data.conversations
+      });
+      
       if (data.success) {
         setConversations(data.conversations);
+        console.log('✅ [Chat] Loaded', data.conversations.length, 'conversations');
+      } else {
+        console.error('❌ [Chat] API error:', data.message);
+        antdMessage.error(data.message || 'Không thể tải conversations');
       }
     } catch (error) {
-      console.error("Error loading conversations:", error);
+      console.error("❌ [Chat] Error loading conversations:", error);
+      antdMessage.error('Lỗi kết nối! Kiểm tra backend server (port 5000)');
     }
   };
 
@@ -146,21 +251,32 @@ function ChatPage() {
   };
 
   const sendMessage = async () => {
-    if (!messageInput.trim() || !selectedConv) return;
+    if (!messageInput.trim() && !selectedFile) return;
+    if (!selectedConv) return;
 
     try {
+      setUploading(true);
+
+      // Use FormData for file upload
+      const formData = new FormData();
+      
+      if (selectedFile) {
+        formData.append('file', selectedFile);
+        formData.append('type', selectedFile.type.startsWith('image/') ? 'image' : 'file');
+      } else {
+        formData.append('content', messageInput.trim());
+        formData.append('type', 'text');
+      }
+
       const response = await fetch(
         `${API_BASE}/api/chat/conversations/${selectedConv._id}/messages`,
         {
           method: "POST",
           headers: {
             Authorization: `Bearer ${session?.token}`,
-            "Content-Type": "application/json",
+            // Don't set Content-Type - browser will set it with boundary for FormData
           },
-          body: JSON.stringify({
-            content: messageInput.trim(),
-            type: "text",
-          }),
+          body: formData,
         }
       );
 
@@ -168,6 +284,7 @@ function ChatPage() {
       if (data.success) {
         setMessages([...messages, data.message]);
         setMessageInput("");
+        setSelectedFile(null);
         loadConversations(); // Update last message
       } else {
         antdMessage.error(data.message || "Không thể gửi tin nhắn");
@@ -175,6 +292,8 @@ function ChatPage() {
     } catch (error) {
       console.error("Error sending message:", error);
       antdMessage.error("Lỗi khi gửi tin nhắn");
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -209,6 +328,39 @@ function ChatPage() {
       return conv.avatar;
     }
     return conv.otherParticipant?.avatar;
+  };
+
+  // Render last message with icon for files/images
+  const renderLastMessage = (conv: Conversation) => {
+    if (!conv.lastMessage) return null;
+    
+    const isMyMessage = conv.lastMessage.sender._id === user?.id;
+    const prefix = isMyMessage ? "Bạn: " : "";
+    const content = conv.lastMessage.content;
+    
+    // Check if message is about image/file (backend sets these formats)
+    if (content.includes("đã gửi hình ảnh")) {
+      return (
+        <span className="flex items-center gap-1">
+          {prefix}
+          <Image className="h-3.5 w-3.5 inline" />
+          Hình ảnh
+        </span>
+      );
+    }
+    
+    if (content.includes("đã gửi file")) {
+      return (
+        <span className="flex items-center gap-1">
+          {prefix}
+          <FileText className="h-3.5 w-3.5 inline" />
+          File
+        </span>
+      );
+    }
+    
+    // Normal text message
+    return `${prefix}${content}`;
   };
 
   const getInitials = (name: string) => {
@@ -342,9 +494,12 @@ function ChatPage() {
       });
 
       const data = await response.json();
+
       if (data.success) {
         setNewGroupDialogOpen(false);
-        antdMessage.success("Đã tạo nhóm thành công!");
+        setGroupName("");
+        setGroupDescription("");
+        setSelectedUsers([]);
         await loadConversations();
         setSelectedConv(data.conversation);
       } else {
@@ -354,6 +509,92 @@ function ChatPage() {
       console.error("Error creating group:", error);
       antdMessage.error("Lỗi khi tạo nhóm");
     }
+  };
+
+  // Open image viewer
+  const openImageViewer = (imageUrl: string, imageName: string) => {
+    setViewingImageUrl(imageUrl);
+    setViewingImageName(imageName);
+    setImageViewerOpen(true);
+  };
+
+  // Toggle reaction on message
+  const toggleReaction = async (messageId: string, emoji: string) => {
+    try {
+      const response = await fetch(
+        `${API_BASE}/api/chat/messages/${messageId}/react`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${session?.token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ emoji }),
+        }
+      );
+
+      const data = await response.json();
+      if (data.success) {
+        // Update message in state
+        setMessages(messages.map(msg => 
+          msg._id === messageId ? data.message : msg
+        ));
+        // Close reactions picker after reacting
+        setShowReactionsFor(null);
+      }
+    } catch (error) {
+      console.error("Error toggling reaction:", error);
+    }
+  };
+
+  // Insert emoji into message input
+  const insertEmoji = (emoji: string) => {
+    setMessageInput(prev => prev + emoji);
+    setShowEmojiPicker(false);
+  };
+
+  // Group reactions by emoji
+  const groupReactions = (reactions?: Message['reactions']) => {
+    if (!reactions || reactions.length === 0) return [];
+    
+    const grouped = reactions.reduce((acc, reaction) => {
+      if (!acc[reaction.emoji]) {
+        acc[reaction.emoji] = [];
+      }
+      acc[reaction.emoji].push(reaction.user);
+      return acc;
+    }, {} as Record<string, Array<{ _id: string; name: string; avatar?: string }>>);
+
+    return Object.entries(grouped).map(([emoji, users]) => ({
+      emoji,
+      users,
+      count: users.length,
+      hasMyReaction: users.some(u => u._id === user?.id),
+    }));
+  };
+
+  // Get reaction tooltip text
+  const getReactionTooltip = (users: Array<{ _id: string; name: string }>) => {
+    const myReaction = users.find(u => u._id === user?.id);
+    const others = users.filter(u => u._id !== user?.id);
+    
+    if (users.length === 1) {
+      return myReaction ? 'Bạn' : users[0].name;
+    }
+    
+    if (myReaction && others.length === 1) {
+      return `Bạn và ${others[0].name}`;
+    }
+    
+    if (myReaction) {
+      return `Bạn và ${others.length} người khác`;
+    }
+    
+    if (users.length === 2) {
+      return `${users[0].name} và ${users[1].name}`;
+    }
+    
+    return `${users[0].name} và ${users.length - 1} người khác`;
   };
 
   const toggleUserSelection = (userId: string) => {
@@ -368,6 +609,23 @@ function ChatPage() {
     u.name.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
     u.email.toLowerCase().includes(userSearchQuery.toLowerCase())
   );
+
+  // Show loading state while auth is loading
+  if (isLoading) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-background">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Đang tải...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Redirect if not authenticated
+  if (!session?.token) {
+    return null; // Will redirect in useEffect
+  }
 
   return (
     <div className="flex h-screen bg-background">
@@ -390,10 +648,22 @@ function ChatPage() {
               </h2>
             </div>
             <div className="flex gap-2">
-              <Button size="sm" variant="ghost" onClick={openNewChatDialog} title="Chat 1-1">
+              <Button 
+                size="sm" 
+                variant="ghost" 
+                onClick={openNewChatDialog} 
+                title="Tạo chat 1-1 với đồng nghiệp"
+                className="hover:bg-primary/10"
+              >
                 <UserPlus className="h-4 w-4" />
               </Button>
-              <Button size="sm" variant="ghost" onClick={openNewGroupDialog} title="Tạo nhóm">
+              <Button 
+                size="sm" 
+                variant="ghost" 
+                onClick={openNewGroupDialog} 
+                title="Tạo nhóm chat mới"
+                className="hover:bg-primary/10"
+              >
                 <Plus className="h-4 w-4" />
               </Button>
             </div>
@@ -448,9 +718,32 @@ function ChatPage() {
         <ScrollArea className="flex-1">
           <div className="p-2">
             {filteredConversations.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                <MessageSquare className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                <p>Chưa có cuộc trò chuyện</p>
+              <div className="text-center py-12 px-4">
+                <MessageSquare className="h-16 w-16 mx-auto mb-4 opacity-30" />
+                <p className="text-sm font-medium mb-2">Chưa có cuộc trò chuyện</p>
+                <p className="text-xs text-muted-foreground mb-4">
+                  Bắt đầu trò chuyện bằng cách:
+                </p>
+                <div className="space-y-2">
+                  <Button
+                    onClick={openNewChatDialog}
+                    variant="outline"
+                    size="sm"
+                    className="w-full justify-start gap-2"
+                  >
+                    <UserPlus className="h-4 w-4" />
+                    Chat 1-1 với đồng nghiệp
+                  </Button>
+                  <Button
+                    onClick={openNewGroupDialog}
+                    variant="outline"
+                    size="sm"
+                    className="w-full justify-start gap-2"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Tạo nhóm chat
+                  </Button>
+                </div>
               </div>
             ) : (
               filteredConversations.map((conv) => (
@@ -486,9 +779,8 @@ function ChatPage() {
                       )}
                     </div>
                     {conv.lastMessage && (
-                      <p className="text-sm text-muted-foreground truncate">
-                        {conv.lastMessage.sender._id === user?.id && "Bạn: "}
-                        {conv.lastMessage.content}
+                      <p className="text-sm text-muted-foreground truncate flex items-center gap-1">
+                        {renderLastMessage(conv)}
                       </p>
                     )}
                   </div>
@@ -583,21 +875,166 @@ function ChatPage() {
                             </AvatarFallback>
                           </Avatar>
                         )}
-                        <div>
+                        <div
+                          onMouseEnter={() => setHoveredMessageId(msg._id)}
+                          onMouseLeave={() => setHoveredMessageId(null)}
+                          className="relative"
+                        >
                           {!isMine && (
                             <p className="text-xs text-muted-foreground mb-1">
                               {msg.sender.name}
                             </p>
                           )}
-                          <div
-                            className={`rounded-2xl px-4 py-2 ${
-                              isMine
-                                ? "bg-primary text-primary-foreground"
-                                : "bg-muted"
-                            }`}
-                          >
-                            <p className="text-sm">{msg.content}</p>
-                          </div>
+                          
+                          {/* Quick Reactions (on hover for text/file messages) */}
+                          {hoveredMessageId === msg._id && msg.type !== "image" && (
+                            <div className={`absolute ${isMine ? 'right-0' : 'left-0'} -top-8 bg-background border rounded-full shadow-lg px-2 py-1 flex gap-1 z-10 animate-in fade-in slide-in-from-top-2 duration-200`}>
+                              {QUICK_REACTIONS.map((emoji) => (
+                                <button
+                                  key={emoji}
+                                  onClick={() => toggleReaction(msg._id, emoji)}
+                                  className="hover:scale-125 transition-transform text-lg w-8 h-8 flex items-center justify-center rounded-full hover:bg-accent"
+                                  title={`React với ${emoji}`}
+                                >
+                                  {emoji}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                          
+                          {/* Image Message */}
+                          {msg.type === "image" && msg.fileUrl && (
+                            <div className="relative group">
+                              <div className="rounded-2xl overflow-hidden">
+                                <img
+                                  src={`${API_BASE}${msg.fileUrl}`}
+                                  alt={msg.fileName || "Image"}
+                                  className="max-w-xs max-h-64 object-contain cursor-pointer hover:opacity-90 transition-opacity"
+                                  onClick={() => openImageViewer(`${API_BASE}${msg.fileUrl}`, msg.fileName || 'Image')}
+                                />
+                                {/* Only show content if it's different from fileName (means user added a caption) */}
+                                {msg.content && msg.content !== msg.fileName && (
+                                  <div className={`px-4 py-2 ${isMine ? "bg-primary text-primary-foreground" : "bg-muted"}`}>
+                                    <p className="text-sm">{msg.content}</p>
+                                  </div>
+                                )}
+                              </div>
+                              
+                              {/* Smile Button for Image Reactions */}
+                              <div className="reactions-picker-container">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setShowReactionsFor(showReactionsFor === msg._id ? null : msg._id);
+                                  }}
+                                  className={`absolute bottom-2 ${isMine ? 'right-2' : 'left-2'} bg-background/95 backdrop-blur-sm border rounded-full shadow-lg p-2 hover:scale-110 transition-transform z-10`}
+                                  title="Thả cảm xúc"
+                                >
+                                  <Smile className="h-5 w-5 text-muted-foreground" />
+                                </button>
+                                
+                                {/* Reactions Picker Popup */}
+                                {showReactionsFor === msg._id && (
+                                  <div className={`absolute bottom-12 ${isMine ? 'right-2' : 'left-2'} bg-background border rounded-full shadow-xl px-2 py-1 flex gap-1 z-20 animate-in fade-in slide-in-from-bottom-2 duration-200`}>
+                                    {QUICK_REACTIONS.map((emoji) => (
+                                      <button
+                                        key={emoji}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          toggleReaction(msg._id, emoji);
+                                        }}
+                                        className="hover:scale-125 transition-transform text-xl w-9 h-9 flex items-center justify-center rounded-full hover:bg-accent"
+                                        title={`React với ${emoji}`}
+                                      >
+                                        {emoji}
+                                      </button>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                          
+                          {/* File Message */}
+                          {msg.type === "file" && msg.fileUrl && (
+                            <div
+                              className={`rounded-2xl px-4 py-3 ${
+                                isMine ? "bg-primary text-primary-foreground" : "bg-muted"
+                              }`}
+                            >
+                              <div className="flex items-center gap-3">
+                                <div className={`h-10 w-10 rounded flex items-center justify-center ${
+                                  isMine ? "bg-primary-foreground/20" : "bg-primary/10"
+                                }`}>
+                                  <FileText className={`h-5 w-5 ${isMine ? "text-primary-foreground" : "text-primary"}`} />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-medium truncate">{msg.fileName || "File"}</p>
+                                  {msg.fileSize && (
+                                    <p className={`text-xs ${isMine ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
+                                      {(msg.fileSize / 1024).toFixed(1)} KB
+                                    </p>
+                                  )}
+                                </div>
+                                <a
+                                  href={`${API_BASE}${msg.fileUrl}`}
+                                  download
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className={`h-8 w-8 ${isMine ? "hover:bg-primary-foreground/20" : ""}`}
+                                  >
+                                    <Download className={`h-4 w-4 ${isMine ? "text-primary-foreground" : ""}`} />
+                                  </Button>
+                                </a>
+                              </div>
+                              {/* Only show content if it's different from fileName (means user added a caption) */}
+                              {msg.content && msg.content !== msg.fileName && (
+                                <p className="text-sm mt-2">{msg.content}</p>
+                              )}
+                            </div>
+                          )}
+                          
+                          {/* Text Message */}
+                          {msg.type === "text" && (
+                            <div
+                              className={`rounded-2xl px-4 py-2 ${
+                                isMine
+                                  ? "bg-primary text-primary-foreground"
+                                  : "bg-muted"
+                              }`}
+                            >
+                              <p className="text-sm">{msg.content}</p>
+                            </div>
+                          )}
+                          
+                          {/* Reactions Display */}
+                          {msg.reactions && msg.reactions.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {groupReactions(msg.reactions).map((reaction) => (
+                                <button
+                                  key={reaction.emoji}
+                                  onClick={() => toggleReaction(msg._id, reaction.emoji)}
+                                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs border transition-all hover:scale-110 ${
+                                    reaction.hasMyReaction
+                                      ? 'bg-primary/10 border-primary text-primary font-medium'
+                                      : 'bg-muted border-border hover:bg-accent'
+                                  }`}
+                                  title={getReactionTooltip(reaction.users)}
+                                >
+                                  <span className="text-sm">{reaction.emoji}</span>
+                                  {reaction.count > 1 && (
+                                    <span className="font-medium">{reaction.count}</span>
+                                  )}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                          
                           <div className={`flex items-center gap-1 mt-1 ${isMine ? "justify-end" : ""}`}>
                             <span className="text-xs text-muted-foreground">
                               {formatTime(msg.createdAt)}
@@ -624,12 +1061,72 @@ function ChatPage() {
 
           {/* Message Input */}
           <div className="p-4 border-t">
+            {/* File Preview */}
+            {selectedFile && (
+              <div className="mb-3 p-3 bg-muted rounded-lg flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  {selectedFile.type.startsWith('image/') ? (
+                    <img
+                      src={URL.createObjectURL(selectedFile)}
+                      alt="Preview"
+                      className="h-16 w-16 object-cover rounded"
+                    />
+                  ) : (
+                    <div className="h-16 w-16 bg-primary/10 rounded flex items-center justify-center">
+                      <FileText className="h-8 w-8 text-primary" />
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{selectedFile.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {(selectedFile.size / 1024).toFixed(1)} KB
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setSelectedFile(null)}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
+
+            {/* Input Area */}
             <div className="flex items-center gap-2">
-              <Button variant="ghost" size="icon">
+              {/* Hidden file input */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    // Check file size (max 10MB)
+                    if (file.size > 10 * 1024 * 1024) {
+                      antdMessage.error('File quá lớn! Tối đa 10MB');
+                      return;
+                    }
+                    setSelectedFile(file);
+                    setMessageInput(''); // Clear text input when file selected
+                  }
+                }}
+              />
+              
+              {/* Paperclip button - Open file dialog */}
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => fileInputRef.current?.click()}
+                title="Đính kèm file"
+              >
                 <Paperclip className="h-4 w-4" />
               </Button>
+              
               <Input
-                placeholder="Nhập tin nhắn..."
+                placeholder={selectedFile ? "File đã chọn..." : "Nhập tin nhắn..."}
                 value={messageInput}
                 onChange={(e) => setMessageInput(e.target.value)}
                 onKeyPress={(e) => {
@@ -639,28 +1136,83 @@ function ChatPage() {
                   }
                 }}
                 className="flex-1"
+                disabled={!!selectedFile}
               />
-              <Button variant="ghost" size="icon">
-                <Smile className="h-4 w-4" />
-              </Button>
+              
+              {/* Emoji Picker */}
+              <div className="relative emoji-picker-container">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                  title="Chọn emoji"
+                >
+                  <Smile className="h-4 w-4" />
+                </Button>
+                
+                {showEmojiPicker && (
+                  <div className="absolute bottom-12 right-0 bg-background border rounded-lg shadow-xl p-3 w-80 max-h-60 overflow-y-auto z-50 animate-in fade-in slide-in-from-bottom-2 duration-200">
+                    <div className="flex items-center justify-between mb-2 pb-2 border-b">
+                      <p className="text-sm font-semibold">Chọn emoji</p>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6"
+                        onClick={() => setShowEmojiPicker(false)}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <div className="grid grid-cols-10 gap-1">
+                      {EMOJI_LIST.map((emoji) => (
+                        <button
+                          key={emoji}
+                          onClick={() => insertEmoji(emoji)}
+                          className="text-2xl hover:scale-125 transition-transform hover:bg-accent rounded p-1"
+                          title={emoji}
+                        >
+                          {emoji}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+              
               <Button
                 onClick={sendMessage}
-                disabled={!messageInput.trim()}
+                disabled={!messageInput.trim() && !selectedFile || uploading}
                 size="icon"
               >
-                <Send className="h-4 w-4" />
+                {uploading ? (
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                ) : (
+                  <Send className="h-4 w-4" />
+                )}
               </Button>
             </div>
           </div>
         </div>
       ) : (
         <div className="flex-1 flex items-center justify-center text-muted-foreground">
-          <div className="text-center">
-            <MessageSquare className="h-16 w-16 mx-auto mb-4 opacity-50" />
-            <h3 className="text-lg font-semibold mb-2">
-              Chọn một cuộc trò chuyện
+          <div className="text-center max-w-md px-4">
+            <MessageSquare className="h-20 w-20 mx-auto mb-6 opacity-30" />
+            <h3 className="text-xl font-semibold mb-2">
+              Chào mừng đến Chat nội bộ
             </h3>
-            <p>Chọn cuộc trò chuyện bên trái để bắt đầu nhắn tin</p>
+            <p className="text-sm mb-6">
+              Chọn một cuộc trò chuyện bên trái để bắt đầu nhắn tin, hoặc tạo mới ngay!
+            </p>
+            <div className="flex gap-2 justify-center">
+              <Button onClick={openNewChatDialog} className="gap-2">
+                <UserPlus className="h-4 w-4" />
+                Chat 1-1
+              </Button>
+              <Button onClick={openNewGroupDialog} variant="outline" className="gap-2">
+                <Plus className="h-4 w-4" />
+                Tạo nhóm
+              </Button>
+            </div>
           </div>
         </div>
       )}
@@ -804,6 +1356,50 @@ function ChatPage() {
               Tạo nhóm
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Image Viewer Modal */}
+      <Dialog open={imageViewerOpen} onOpenChange={setImageViewerOpen}>
+        <DialogContent className="max-w-6xl w-full p-0 overflow-hidden bg-black/95 border-none">
+          <div className="relative">
+            {/* Close button */}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="absolute top-4 right-4 z-10 text-white hover:bg-white/20 rounded-full"
+              onClick={() => setImageViewerOpen(false)}
+            >
+              <X className="h-6 w-6" />
+            </Button>
+            
+            {/* Download button */}
+            <a
+              href={viewingImageUrl}
+              download
+              target="_blank"
+              rel="noopener noreferrer"
+              className="absolute top-4 right-16 z-10"
+            >
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-white hover:bg-white/20 rounded-full"
+                title="Tải về"
+              >
+                <Download className="h-5 w-5" />
+              </Button>
+            </a>
+            
+            {/* Image - Full screen */}
+            <div className="flex items-center justify-center min-h-[500px] max-h-[90vh]">
+              <img
+                src={viewingImageUrl}
+                alt="Image"
+                className="max-w-full max-h-[90vh] object-contain"
+              />
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

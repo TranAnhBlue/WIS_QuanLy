@@ -51,18 +51,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const loadSession = () => {
       try {
-        if (typeof window === 'undefined') return;
-        
         const token = localStorage.getItem(TOKEN_KEY);
         const userData = localStorage.getItem(USER_KEY);
+
+        console.log('🔐 [Auth] Loading session from localStorage:', {
+          hasToken: !!token,
+          tokenPreview: token ? `${token.substring(0, 20)}...` : 'null',
+          hasUserData: !!userData,
+        });
 
         if (token && userData) {
           const parsedUser = JSON.parse(userData);
           setSession({ token, user: parsedUser });
           setUser(parsedUser);
+          console.log('✅ [Auth] Session loaded successfully for:', parsedUser.email);
+        } else {
+          console.log('⚠️ [Auth] No session found in localStorage');
         }
       } catch (error) {
-        console.error("Error loading session:", error);
+        console.error("❌ [Auth] Error loading session:", error);
         // Clear invalid data
         localStorage.removeItem(TOKEN_KEY);
         localStorage.removeItem(USER_KEY);
@@ -76,6 +83,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
     try {
+      console.log('🔑 [Auth] Attempting login for:', email);
+      
       // Call Backend Node.js API
       const response = await fetch(`${API_BASE}/api/auth/login`, {
         method: 'POST',
@@ -86,23 +95,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
 
       const data = await response.json();
+      console.log('📡 [Auth] Login response:', {
+        status: response.status,
+        success: data.success,
+        hasToken: !!data.token,
+        hasUser: !!data.user,
+      });
 
       if (response.ok && data.success && data.token && data.user) {
         // API login successful - save to localStorage
+        console.log('💾 [Auth] Saving token to localStorage...');
         localStorage.setItem(TOKEN_KEY, data.token);
         localStorage.setItem(USER_KEY, JSON.stringify(data.user));
+        
+        // Verify save
+        const savedToken = localStorage.getItem(TOKEN_KEY);
+        console.log('✅ [Auth] Token saved successfully:', !!savedToken);
+        
         setSession({ token: data.token, user: data.user });
         setUser(data.user);
         return { success: true };
       }
 
       // Login failed
+      console.log('❌ [Auth] Login failed:', data.message);
       return {
         success: false,
         error: data.message || 'Email hoặc mật khẩu không đúng',
       };
     } catch (error) {
-      console.error('Login error:', error);
+      console.error('❌ [Auth] Login error:', error);
       return {
         success: false,
         error: 'Không thể kết nối với server. Đảm bảo backend đang chạy tại http://localhost:5000',
@@ -111,6 +133,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = () => {
+    console.log('👋 [Auth] Logging out...');
     // Clear localStorage
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
@@ -118,6 +141,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Clear state
     setSession(null);
     setUser(null);
+    console.log('✅ [Auth] Logout complete');
   };
 
   const hasRole = (role: Role): boolean => {

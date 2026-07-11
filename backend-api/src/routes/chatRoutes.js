@@ -1,4 +1,5 @@
 import express from 'express';
+import upload from '../middleware/upload.js';
 import {
   getConversations,
   getOrCreateDirectConversation,
@@ -9,6 +10,7 @@ import {
   deleteMessage,
   addParticipants,
   leaveGroup,
+  toggleReaction,
 } from '../controllers/chatController.js';
 
 const router = express.Router();
@@ -20,9 +22,10 @@ router.post('/conversations/group', createGroupConversation);
 
 // Message routes
 router.get('/conversations/:conversationId/messages', getMessages);
-router.post('/conversations/:conversationId/messages', sendMessage);
+router.post('/conversations/:conversationId/messages', upload.single('file'), sendMessage);
 router.post('/conversations/:conversationId/read', markMessagesAsRead);
 router.delete('/messages/:messageId', deleteMessage);
+router.post('/messages/:messageId/react', toggleReaction);
 
 // Group management routes
 router.post('/conversations/:conversationId/participants', addParticipants);

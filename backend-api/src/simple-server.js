@@ -4,15 +4,23 @@ import cors from 'cors';
 import mongoose from 'mongoose';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import Attendance from './models/Attendance.js';
 import User from './models/User.js';
 import chatRoutes from './routes/chatRoutes.js';
 
 dotenv.config();
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 const app = express();
 app.use(cors({ origin: process.env.CORS_ORIGIN?.split(','), credentials: true }));
 app.use(express.json());
+
+// Serve uploaded files statically
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // MongoDB connect
 console.log('🔄 Connecting to MongoDB...');
@@ -26,15 +34,31 @@ mongoose.connect(process.env.MONGODB_URI)
 // Auth middleware
 const protect = async (req, res, next) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
+    const authHeader = req.headers.authorization;
+    console.log('🔐 [Auth Middleware] Checking authorization:', {
+      hasAuthHeader: !!authHeader,
+      authHeaderPreview: authHeader ? `${authHeader.substring(0, 30)}...` : 'null',
+      path: req.path,
+      method: req.method,
+    });
+    
+    const token = authHeader?.replace('Bearer ', '');
     if (!token) {
+      console.log('❌ [Auth Middleware] No token provided');
       return res.status(401).json({ success: false, message: 'Không có token' });
     }
     
+    console.log('🔍 [Auth Middleware] Verifying token with JWT_SECRET...');
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    console.log('✅ [Auth Middleware] Token verified successfully for user:', decoded.email);
+    
     req.user = decoded;
     next();
   } catch (error) {
+    console.error('❌ [Auth Middleware] Token verification failed:', {
+      error: error.message,
+      name: error.name,
+    });
     res.status(401).json({ success: false, message: 'Token không hợp lệ' });
   }
 };
@@ -54,10 +78,12 @@ app.get('/health', (req, res) => {
 app.post('/api/auth/login', async (req, res) => {
   try {
     const { email, password } = req.body;
+    console.log('🔑 [Login] Attempting login for:', email);
     
     // Need to explicitly select password since it's excluded by default
     const user = await User.findOne({ email }).select('+password');
     if (!user) {
+      console.log('❌ [Login] User not found:', email);
       return res.status(401).json({
         success: false,
         message: 'Email hoặc mật khẩu không đúng',
@@ -66,12 +92,15 @@ app.post('/api/auth/login', async (req, res) => {
 
     const isMatch = await user.comparePassword(password);
     if (!isMatch) {
+      console.log('❌ [Login] Password mismatch for:', email);
       return res.status(401).json({
         success: false,
         message: 'Email hoặc mật khẩu không đúng',
       });
     }
 
+    console.log('✅ [Login] Password verified, generating token with JWT_SECRET:', process.env.JWT_SECRET?.substring(0, 10) + '...');
+    
     const token = jwt.sign(
       {
         id: user._id,
@@ -85,12 +114,15 @@ app.post('/api/auth/login', async (req, res) => {
       { expiresIn: process.env.JWT_EXPIRE || '7d' }
     );
 
+    console.log('✅ [Login] Token generated successfully, length:', token.length);
+    
     res.json({
       success: true,
       token,
       user: user.getPublicProfile(),
     });
   } catch (error) {
+    console.error('❌ [Login] Error:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 });
@@ -610,6 +642,10 @@ app.listen(PORT, () => {
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   console.log(`📡 Server: http://localhost:${PORT}`);
   console.log(`💚 Health: http://localhost:${PORT}/health`);
+  console.log(`🔑 JWT_SECRET: ${process.env.JWT_SECRET?.substring(0, 20)}...`);
+  console.log(`⏰ JWT_EXPIRE: ${process.env.JWT_EXPIRE || '7d'}`);
+  console.log(`🌐 CORS_ORIGIN: ${process.env.CORS_ORIGIN}`);
   console.log(`⏰ Attendance API: /api/attendance/*`);
+  console.log(`💬 Chat API: /api/chat/*`);
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 });

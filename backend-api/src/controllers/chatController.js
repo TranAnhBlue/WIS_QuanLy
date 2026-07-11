@@ -206,7 +206,8 @@ export const sendMessage = async (req, res) => {
     const { conversationId } = req.params;
     const { content, type = 'text', replyTo } = req.body;
 
-    if (!content || !content.trim()) {
+    // For file/image messages, content is optional (file info is in req.file)
+    if (type === 'text' && (!content || !content.trim())) {
       return res.status(400).json({ success: false, message: 'Message content is required' });
     }
 
@@ -220,19 +221,44 @@ export const sendMessage = async (req, res) => {
       return res.status(403).json({ success: false, message: 'You are not a participant' });
     }
 
-    // Create message
-    const message = await Message.create({
+    // Prepare message data
+    const messageData = {
       conversation: conversationId,
       sender: userId,
-      content: content.trim(),
       type,
       replyTo: replyTo || null,
       readBy: [{ user: userId, readAt: new Date() }], // Mark as read by sender
-    });
+    };
+
+    // Handle file upload
+    if (req.file) {
+      messageData.content = req.file.originalname; // Use filename as content
+      messageData.fileUrl = `/uploads/chat/${req.file.filename}`;
+      messageData.fileName = req.file.originalname;
+      messageData.fileSize = req.file.size;
+      messageData.type = req.file.mimetype.startsWith('image/') ? 'image' : 'file';
+    } else {
+      messageData.content = content.trim();
+    }
+
+    // Create message
+    const message = await Message.create(messageData);
+
+    // Get sender info for lastMessage
+    const sender = await User.findById(userId).select('name');
 
     // Update conversation's last message
+    let lastMessageContent;
+    if (messageData.type === 'image') {
+      lastMessageContent = `${sender.name} đã gửi hình ảnh`;
+    } else if (messageData.type === 'file') {
+      lastMessageContent = `${sender.name} đã gửi file`;
+    } else {
+      lastMessageContent = messageData.content;
+    }
+
     conversation.lastMessage = {
-      content: content.trim(),
+      content: lastMessageContent,
       sender: userId,
       timestamp: message.createdAt,
     };
@@ -422,6 +448,62 @@ export const leaveGroup = async (req, res) => {
     res.json({
       success: true,
       message: 'Left conversation',
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// Add or remove reaction to message
+export const toggleReaction = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { messageId } = req.params;
+    const { emoji } = req.body;
+
+    if (!emoji || typeof emoji !== 'string') {
+      return res.status(400).json({ success: false, message: 'Emoji is required' });
+    }
+
+    const message = await Message.findById(messageId);
+    if (!message) {
+      return res.status(404).json({ success: false, message: 'Message not found' });
+    }
+
+    // Check if user is participant of the conversation
+    const conversation = await Conversation.findById(message.conversation);
+    if (!conversation || !conversation.hasParticipant(userId)) {
+      return res.status(403).json({ success: false, message: 'You are not a participant' });
+    }
+
+    // Check if user already reacted with this emoji
+    const existingReactionIndex = message.reactions.findIndex(
+      r => r.user.toString() === userId && r.emoji === emoji
+    );
+
+    if (existingReactionIndex >= 0) {
+      // Remove reaction (toggle off)
+      message.reactions.splice(existingReactionIndex, 1);
+    } else {
+      // Add new reaction
+      message.reactions.push({
+        user: userId,
+        emoji,
+        createdAt: new Date(),
+      });
+    }
+
+    await message.save();
+
+    // Populate and return
+    const populatedMessage = await Message.findById(message._id)
+      .populate('sender', 'name email avatar role')
+      .populate('reactions.user', 'name avatar')
+      .populate('replyTo');
+
+    res.json({
+      success: true,
+      message: populatedMessage.getPublicProfile(),
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

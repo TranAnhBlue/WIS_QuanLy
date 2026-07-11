@@ -40,6 +40,22 @@ const messageSchema = new mongoose.Schema(
         default: Date.now,
       },
     }],
+    // Reactions - array of emoji reactions
+    reactions: [{
+      user: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+        required: true,
+      },
+      emoji: {
+        type: String,
+        required: true,
+      },
+      createdAt: {
+        type: Date,
+        default: Date.now,
+      },
+    }],
     // Reply to another message
     replyTo: {
       type: mongoose.Schema.Types.ObjectId,
@@ -87,6 +103,7 @@ messageSchema.methods.getPublicProfile = function () {
     fileName: this.fileName,
     fileSize: this.fileSize,
     readBy: this.readBy,
+    reactions: this.reactions,
     replyTo: this.replyTo,
     isDeleted: this.isDeleted,
     createdAt: this.createdAt,
