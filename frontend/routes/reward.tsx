@@ -4,6 +4,7 @@ import {
   Award, ArrowLeft, Gift, Sparkles, TrendingUp, Star, Trophy, Coins,
   Plus, Search, Filter, ShoppingBag, Target, CheckCircle2,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { message } from "antd";
 import { businessApi } from "@/lib/backend-api";
 
@@ -48,17 +49,6 @@ type RewardItem = {
   desc: string;
 };
 
-const INITIAL_MEMBERS: Member[] = [
-  { id: "m1", name: "Trần Thị B", code: "NV-0021", line: "Line 2", title: "Trưởng phòng Đánh giá", points: 4820, delta: 320, streak: 12 },
-  { id: "m2", name: "Nguyễn Thị Linh", code: "NV-0005", line: "Line 1", title: "CEO", points: 4610, delta: 210, streak: 9 },
-  { id: "m3", name: "Lê Minh C", code: "NV-0034", line: "Line 1", title: "Trưởng phòng Đào tạo", points: 3980, delta: 180, streak: 7 },
-  { id: "m4", name: "Phạm Quốc D", code: "NV-0052", line: "Line 3", title: "Project Manager", points: 3720, delta: 260, streak: 5 },
-  { id: "m5", name: "Hoàng Thu E", code: "NV-0067", line: "Line 2", title: "Đánh giá viên", points: 3410, delta: 95, streak: 4 },
-  { id: "m6", name: "Vũ Quang F", code: "NV-0071", line: "Line 3", title: "IT Lead", points: 3120, delta: 140, streak: 3 },
-  { id: "m7", name: "Đặng Hải G", code: "NV-0088", line: "Line 1", title: "Chuyên viên KD", points: 2870, delta: 60, streak: 2 },
-  { id: "m8", name: "Bùi Ngọc H", code: "NV-0092", line: "Line 2", title: "QA Auditor", points: 2540, delta: 40, streak: 2 },
-];
-
 const REWARDS: RewardItem[] = [
   { id: "r1", name: "Voucher Grab 200K", cost: 500, stock: 20, category: "Voucher", desc: "Mã Grab áp dụng cho di chuyển & GrabFood." },
   { id: "r2", name: "Áo polo đồng phục WIS", cost: 800, stock: 45, category: "Hiện vật", desc: "Áo polo cotton co-giãn, in logo WIS." },
@@ -66,14 +56,6 @@ const REWARDS: RewardItem[] = [
   { id: "r4", name: "Team-building 1 ngày", cost: 3000, stock: 5, category: "Trải nghiệm", desc: "Đi cùng team, chi phí Line chi trả." },
   { id: "r5", name: "Khóa học Coursera Plus (1 tháng)", cost: 1200, stock: 10, category: "Đào tạo", desc: "Truy cập toàn bộ khóa học Coursera Plus." },
   { id: "r6", name: "Balo laptop cao cấp", cost: 2200, stock: 8, category: "Hiện vật", desc: "Balo chống nước, ngăn laptop 15.6\"." },
-];
-
-const INITIAL_ACTIVITIES: Activity[] = [
-  { id: "a1", who: "Trần Thị B", action: "Hoàn thành đánh giá ISO 22000 — Vinamilk", points: 120, when: "10 phút trước", type: "earn" },
-  { id: "a2", who: "Lê Minh C", action: "Đóng khóa Lead Auditor K12 đạt 4.9★", points: 180, when: "1 giờ trước", type: "earn" },
-  { id: "a3", who: "Phạm Quốc D", action: "Đổi Voucher Grab 200K", points: -500, when: "3 giờ trước", type: "redeem" },
-  { id: "a4", who: "Nguyễn Thị Linh", action: "Vượt KPI doanh thu Q2 Line 1", points: 300, when: "Hôm qua", type: "earn" },
-  { id: "a5", who: "Hoàng Thu E", action: "Đóng góp SOP đánh giá VietGAP", points: 90, when: "Hôm qua", type: "earn" },
 ];
 
 const LINE_COLOR: Record<Line, string> = {
@@ -214,7 +196,7 @@ function RewardsPage() {
             return (
               <button
                 key={t.id}
-                onClick={() => setTab(t.id as any)}
+                onClick={() => setTab(t.id as typeof tab)}
                 className={`inline-flex items-center gap-2 px-4 h-10 text-sm border-b-2 -mb-px transition ${
                   active ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"
                 }`}
@@ -366,7 +348,7 @@ function RewardsPage() {
   );
 }
 
-function StatCard({ icon: Icon, label, value, sub, tone }: { icon: any; label: string; value: string | number; sub: string; tone: string }) {
+function StatCard({ icon: Icon, label, value, sub, tone }: { icon: LucideIcon; label: string; value: string | number; sub: string; tone: string }) {
   const tones: Record<string, string> = {
     primary: "bg-primary/10 text-primary",
     success: "bg-emerald-500/15 text-emerald-600",

@@ -27,19 +27,6 @@ type Cert = {
   status: Status; auditor: string;
 };
 
-const STORAGE_KEY = "wis_certifications";
-
-const INITIAL: Cert[] = [
-  { id: "c1", code: "WC-ISO-2025-041", standard: "ISO 9001:2015", scope: "Sản xuất & phân phối thực phẩm", customer: "Công ty TNHH Minh Phú", line: "Line 2", issued: "12/03/2024", expires: "12/03/2027", status: "active", auditor: "Trần Thị B" },
-  { id: "c2", code: "WC-ISO-2024-098", standard: "ISO 22000:2018", scope: "Chuỗi cung ứng sữa", customer: "Vinamilk Tiên Sơn", line: "Line 2", issued: "05/08/2023", expires: "05/08/2026", status: "expiring", auditor: "Hoàng Thu E" },
-  { id: "c3", code: "WC-HACCP-2024-012", standard: "HACCP CODEX", scope: "Chế biến thủy sản đông lạnh", customer: "Thủy sản Bình Định", line: "Line 2", issued: "20/11/2024", expires: "20/11/2027", status: "active", auditor: "Bùi Ngọc H" },
-  { id: "c4", code: "IC-VGAP-2025-007", standard: "VietGAP Trồng trọt", scope: "Trồng rau, củ, quả", customer: "HTX Nông sản Sơn La", line: "Line 3", issued: "15/01/2025", expires: "15/01/2028", status: "active", auditor: "Phạm Quốc D" },
-  { id: "c5", code: "WC-ISO-2022-055", standard: "ISO 14001:2015", scope: "Quản lý môi trường nhà máy", customer: "Cty CP May Nhà Bè", line: "Line 2", issued: "10/06/2022", expires: "10/06/2025", status: "expired", auditor: "Trần Thị B" },
-  { id: "c6", code: "SC-TR-2025-019", standard: "Đào tạo Lead Auditor ISO 9001", scope: "Chương trình 40h", customer: "Khóa 12 công khai", line: "Line 1", issued: "—", expires: "—", status: "draft", auditor: "Lê Minh C" },
-  { id: "c7", code: "IC-VGAP-2025-021", standard: "VietGAP Chăn nuôi", scope: "Trang trại lợn 500 nái", customer: "HTX Chăn nuôi Hòa Bình", line: "Line 3", issued: "22/04/2025", expires: "22/04/2028", status: "active", auditor: "Phạm Quốc D" },
-  { id: "c8", code: "WC-ISO-2024-102", standard: "ISO 45001:2018", scope: "An toàn sức khỏe nghề nghiệp", customer: "Cty XD Hòa Bình", line: "Line 2", issued: "18/09/2024", expires: "18/09/2027", status: "expiring", auditor: "Hoàng Thu E" },
-];
-
 const STATUS_META: Record<Status, { label: string; cls: string }> = {
   active:   { label: "Còn hiệu lực", cls: "bg-success/15 text-success border-success/30" },
   expiring: { label: "Sắp hết hạn", cls: "bg-warning/15 text-warning border-warning/30" },

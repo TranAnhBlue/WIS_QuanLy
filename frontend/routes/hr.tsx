@@ -45,21 +45,6 @@ type Employee = {
   departmentCode?: string;
 };
 
-const SEED: Employee[] = [
-  { id: "e1", code: "WC-001", name: "Nguyễn Văn A", title: "Tổng giám đốc", department: "Ban giám đốc", company: "Line 2", email: "a.nguyen@wcert.vn", phone: "0901 234 567", location: "Hà Nội", joinedAt: "2018-03-15", status: "active", kpi: 96, certifications: ["ISO 9001 Lead Auditor", "IRCA"], avatar: "NA" },
-  { id: "e2", code: "WC-014", name: "Trần Thị B", title: "Giám đốc Phạm vi tiêu chuẩn quy chuẩn", department: "Phạm vi tiêu chuẩn quy chuẩn", company: "Line 2", email: "b.tran@wcert.vn", phone: "0912 345 678", location: "Hà Nội", joinedAt: "2019-06-01", status: "active", manager: "Nguyễn Văn A", kpi: 92, certifications: ["ISO 9001", "ISO 14001", "HACCP"], avatar: "TB" },
-  { id: "e3", code: "WC-027", name: "Lê Minh C", title: "Trưởng phòng Kinh doanh", department: "Kinh doanh", company: "Line 2", email: "c.le@wcert.vn", phone: "0987 654 321", location: "Hà Nội", joinedAt: "2020-09-10", status: "active", manager: "Nguyễn Văn A", kpi: 88, certifications: ["ISO 9001"], avatar: "LC" },
-  { id: "e4", code: "WC-042", name: "Phạm Thu D", title: "Chuyên viên Đánh giá", department: "Phạm vi tiêu chuẩn quy chuẩn", company: "Line 2", email: "d.pham@wcert.vn", phone: "0934 567 890", location: "Hà Nội", joinedAt: "2021-11-20", status: "active", manager: "Trần Thị B", kpi: 84, certifications: ["ISO 22000"], avatar: "PD" },
-  { id: "e5", code: "WC-058", name: "Hoàng Thu E", title: "Chuyên viên Marketing", department: "Marketing", company: "Line 2", email: "e.hoang@wcert.vn", phone: "0966 778 899", location: "TP.HCM", joinedAt: "2022-02-14", status: "active", manager: "Lê Minh C", kpi: 79, certifications: [], avatar: "HE" },
-  { id: "e6", code: "SC-003", name: "Vũ Đức F", title: "Giám đốc Line 1", department: "Ban giám đốc", company: "Line 1", email: "f.vu@sctviet.vn", phone: "0945 678 123", location: "Hà Nội", joinedAt: "2019-01-05", status: "active", kpi: 91, certifications: ["ISO 14001", "ISO 45001"], avatar: "VF" },
-  { id: "e7", code: "SC-011", name: "Đỗ Thanh G", title: "Trưởng phòng Đào tạo", department: "Đào tạo", company: "Line 1", email: "g.do@sctviet.vn", phone: "0978 123 456", location: "Hà Nội", joinedAt: "2020-04-22", status: "active", manager: "Vũ Đức F", kpi: 87, certifications: ["TOT", "ISO 9001"], avatar: "ĐG" },
-  { id: "e8", code: "IC-002", name: "Bùi Quang H", title: "Giám đốc Line 3", department: "Ban giám đốc", company: "Line 3", email: "h.bui@ictviet.vn", phone: "0923 456 789", location: "Sơn La", joinedAt: "2020-07-01", status: "active", kpi: 89, certifications: ["VietGAP", "GlobalGAP"], avatar: "BH" },
-  { id: "e9", code: "IC-009", name: "Mai Hồng I", title: "Chuyên viên VietGAP", department: "Nông nghiệp", company: "Line 3", email: "i.mai@ictviet.vn", phone: "0956 789 012", location: "Sơn La", joinedAt: "2022-08-15", status: "probation", manager: "Bùi Quang H", kpi: 72, certifications: ["VietGAP"], avatar: "MI" },
-  { id: "e10", code: "WC-063", name: "Đặng Văn K", title: "Kế toán trưởng", department: "Tài chính", company: "Line 2", email: "k.dang@wcert.vn", phone: "0902 345 678", location: "Hà Nội", joinedAt: "2019-10-12", status: "active", manager: "Nguyễn Văn A", kpi: 90, certifications: ["CPA Việt Nam"], avatar: "ĐK" },
-  { id: "e11", code: "WC-071", name: "Ngô Thị L", title: "Chuyên viên Nhân sự", department: "Nhân sự", company: "Line 2", email: "l.ngo@wcert.vn", phone: "0915 234 567", location: "Hà Nội", joinedAt: "2023-03-01", status: "active", manager: "Nguyễn Văn A", kpi: 81, certifications: [], avatar: "NL" },
-  { id: "e12", code: "SC-018", name: "Trịnh Quốc M", title: "Giảng viên cấp cao", department: "Đào tạo", company: "Line 1", email: "m.trinh@sctviet.vn", phone: "0938 765 432", location: "TP.HCM", joinedAt: "2021-05-18", status: "leave", manager: "Đỗ Thanh G", kpi: 75, certifications: ["ISO 27001", "TOT"], avatar: "TM" },
-];
-
 const ALL = "Tất cả";
 const STATUS_META: Record<Status, { label: string; cls: string; dot: string }> = {
   active: { label: "Đang làm", cls: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 ring-emerald-500/30", dot: "bg-emerald-500" },

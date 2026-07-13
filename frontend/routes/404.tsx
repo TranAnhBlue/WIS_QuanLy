@@ -38,7 +38,7 @@ function NotFoundPage() {
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <Button
               variant="outline"
-              onClick={() => navigate({ to: -1 as any })}
+              onClick={() => window.history.back()}
               className="flex items-center gap-2"
             >
               <ArrowLeft className="w-4 h-4" />

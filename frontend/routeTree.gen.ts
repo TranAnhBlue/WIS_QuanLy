@@ -19,7 +19,6 @@ import { Route as ProjectsRouteImport } from './routes/projects'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as HrRouteImport } from './routes/hr'
-import { Route as DebugTokenRouteImport } from './routes/debug-token'
 import { Route as ContractsRouteImport } from './routes/contracts'
 import { Route as ChatRouteImport } from './routes/chat'
 import { Route as CertificationsRouteImport } from './routes/certifications'
@@ -80,11 +79,6 @@ const HrRoute = HrRouteImport.update({
   path: '/hr',
   getParentRoute: () => rootRouteImport,
 } as any)
-const DebugTokenRoute = DebugTokenRouteImport.update({
-  id: '/debug-token',
-  path: '/debug-token',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ContractsRoute = ContractsRouteImport.update({
   id: '/contracts',
   path: '/contracts',
@@ -140,7 +134,6 @@ export interface FileRoutesByFullPath {
   '/certifications': typeof CertificationsRoute
   '/chat': typeof ChatRoute
   '/contracts': typeof ContractsRoute
-  '/debug-token': typeof DebugTokenRoute
   '/hr': typeof HrRoute
   '/login': typeof LoginRoute
   '/profile': typeof ProfileRoute
@@ -162,7 +155,6 @@ export interface FileRoutesByTo {
   '/certifications': typeof CertificationsRoute
   '/chat': typeof ChatRoute
   '/contracts': typeof ContractsRoute
-  '/debug-token': typeof DebugTokenRoute
   '/hr': typeof HrRoute
   '/login': typeof LoginRoute
   '/profile': typeof ProfileRoute
@@ -185,7 +177,6 @@ export interface FileRoutesById {
   '/certifications': typeof CertificationsRoute
   '/chat': typeof ChatRoute
   '/contracts': typeof ContractsRoute
-  '/debug-token': typeof DebugTokenRoute
   '/hr': typeof HrRoute
   '/login': typeof LoginRoute
   '/profile': typeof ProfileRoute
@@ -209,7 +200,6 @@ export interface FileRouteTypes {
     | '/certifications'
     | '/chat'
     | '/contracts'
-    | '/debug-token'
     | '/hr'
     | '/login'
     | '/profile'
@@ -231,7 +221,6 @@ export interface FileRouteTypes {
     | '/certifications'
     | '/chat'
     | '/contracts'
-    | '/debug-token'
     | '/hr'
     | '/login'
     | '/profile'
@@ -253,7 +242,6 @@ export interface FileRouteTypes {
     | '/certifications'
     | '/chat'
     | '/contracts'
-    | '/debug-token'
     | '/hr'
     | '/login'
     | '/profile'
@@ -276,7 +264,6 @@ export interface RootRouteChildren {
   CertificationsRoute: typeof CertificationsRoute
   ChatRoute: typeof ChatRoute
   ContractsRoute: typeof ContractsRoute
-  DebugTokenRoute: typeof DebugTokenRoute
   HrRoute: typeof HrRoute
   LoginRoute: typeof LoginRoute
   ProfileRoute: typeof ProfileRoute
@@ -359,13 +346,6 @@ declare module '@tanstack/react-router' {
       path: '/hr'
       fullPath: '/hr'
       preLoaderRoute: typeof HrRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/debug-token': {
-      id: '/debug-token'
-      path: '/debug-token'
-      fullPath: '/debug-token'
-      preLoaderRoute: typeof DebugTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/contracts': {
@@ -455,7 +435,6 @@ const rootRouteChildren: RootRouteChildren = {
   CertificationsRoute: CertificationsRoute,
   ChatRoute: ChatRoute,
   ContractsRoute: ContractsRoute,
-  DebugTokenRoute: DebugTokenRoute,
   HrRoute: HrRoute,
   LoginRoute: LoginRoute,
   ProfileRoute: ProfileRoute,

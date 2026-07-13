@@ -32,36 +32,6 @@ type Contract = {
   status: Status; milestones: Milestone[];
 };
 
-const STORAGE_KEY = "wis_contracts";
-
-const INITIAL: Contract[] = [
-  { id: "h1", code: "HĐ-2025-041", title: "Tư vấn & chứng nhận ISO 9001", customer: "Cty TNHH Minh Phú", line: "Line 2", owner: "Trần Thị B", signed: "01/03/2025", expires: "01/03/2026", value: 320_000_000, status: "active", milestones: [
-    { name: "Tạm ứng 30%", amount: 96_000_000, due: "05/03", paid: true },
-    { name: "Sau đánh giá giai đoạn 1", amount: 128_000_000, due: "20/05", paid: true },
-    { name: "Cấp chứng nhận", amount: 96_000_000, due: "15/07", paid: false },
-  ] },
-  { id: "h2", code: "HĐ-2025-038", title: "Tư vấn ISO 22000 Vinamilk", customer: "Vinamilk Tiên Sơn", line: "Line 2", owner: "Hoàng Thu E", signed: "10/04/2025", expires: "10/04/2026", value: 480_000_000, status: "active", milestones: [
-    { name: "Tạm ứng 40%", amount: 192_000_000, due: "15/04", paid: true },
-    { name: "Giao GAP report", amount: 144_000_000, due: "30/06", paid: false },
-    { name: "Nghiệm thu cuối", amount: 144_000_000, due: "10/09", paid: false },
-  ] },
-  { id: "h3", code: "HĐ-2025-019", title: "Đào tạo Lead Auditor K12", customer: "10 học viên công khai", line: "Line 1", owner: "Lê Minh C", signed: "20/05/2025", expires: "30/06/2025", value: 140_000_000, status: "active", milestones: [
-    { name: "Học phí trọn khóa", amount: 140_000_000, due: "20/05", paid: true },
-  ] },
-  { id: "h4", code: "HĐ-2025-007", title: "Chứng nhận VietGAP Sơn La", customer: "HTX Nông sản Sơn La", line: "Line 3", owner: "Phạm Quốc D", signed: "01/02/2025", expires: "01/02/2028", value: 210_000_000, status: "active", milestones: [
-    { name: "Tạm ứng 30%", amount: 63_000_000, due: "05/02", paid: true },
-    { name: "Đánh giá thực địa", amount: 84_000_000, due: "01/06", paid: false },
-    { name: "Cấp chứng nhận", amount: 63_000_000, due: "01/08", paid: false },
-  ] },
-  { id: "h5", code: "HĐ-2025-050", title: "Gia hạn ISO 14001 May Nhà Bè", customer: "Cty CP May Nhà Bè", line: "Line 2", owner: "Trần Thị B", signed: "—", expires: "—", value: 45_000_000, status: "pending-sign", milestones: [] },
-  { id: "h6", code: "HĐ-2024-118", title: "ISO 14001 May Nhà Bè", customer: "Cty CP May Nhà Bè", line: "Line 2", owner: "Bùi Ngọc H", signed: "05/10/2024", expires: "20/03/2025", value: 300_000_000, status: "completed", milestones: [
-    { name: "Trọn gói", amount: 300_000_000, due: "20/03", paid: true },
-  ] },
-  { id: "h7", code: "HĐ-2024-098", title: "HACCP Codex thủy sản", customer: "Thủy sản Cà Mau", line: "Line 2", owner: "Hoàng Thu E", signed: "12/07/2024", expires: "12/01/2025", value: 90_000_000, status: "terminated", milestones: [
-    { name: "Tạm ứng", amount: 27_000_000, due: "15/07", paid: true },
-  ] },
-];
-
 const STATUS_META: Record<Status, { label: string; cls: string; icon: typeof CheckCircle2 }> = {
   draft:          { label: "Nháp", cls: "bg-muted text-muted-foreground border-border", icon: FileSignature },
   "pending-sign": { label: "Chờ ký", cls: "bg-warning/15 text-warning border-warning/30", icon: PenTool },

@@ -1,8 +1,8 @@
 // Check ALL attendance records in database
 import dotenv from 'dotenv';
 import mongoose from 'mongoose';
-import Attendance from './src/models/Attendance.js';
-import User from './src/models/User.js';
+import Attendance from '../../src/models/Attendance.js';
+import User from '../../src/models/User.js';
 
 dotenv.config();
 

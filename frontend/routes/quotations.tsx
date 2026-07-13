@@ -30,32 +30,6 @@ type Quote = {
   items: QuoteLine[]; notes?: string;
 };
 
-const STORAGE_KEY = "wis_quotations";
-
-const INITIAL: Quote[] = [
-  { id: "q1", code: "BG-2025-0142", customer: "Cty TNHH Minh Phú", contact: "Ms. Hương", line: "Line 2", owner: "Trần Thị B", created: "12/06", valid: "26/06", status: "sent", items: [
-    { desc: "Đánh giá chứng nhận ISO 9001:2015 — 3 ngày công", qty: 3, price: 12_000_000 },
-    { desc: "Phí duy trì năm 1", qty: 1, price: 8_000_000 },
-  ] },
-  { id: "q2", code: "BG-2025-0141", customer: "Vinamilk Tiên Sơn", contact: "Anh Tuấn", line: "Line 2", owner: "Hoàng Thu E", created: "10/06", valid: "24/06", status: "accepted", items: [
-    { desc: "Tư vấn xây dựng ISO 22000:2018", qty: 1, price: 180_000_000 },
-    { desc: "Đào tạo nội bộ 2 khóa", qty: 2, price: 15_000_000 },
-  ] },
-  { id: "q3", code: "BG-2025-0140", customer: "HTX Nông sản Sơn La", contact: "Chị Mai", line: "Line 3", owner: "Phạm Quốc D", created: "08/06", valid: "22/06", status: "rejected", items: [
-    { desc: "Chứng nhận VietGAP Trồng trọt", qty: 1, price: 65_000_000 },
-  ], notes: "Khách phản hồi vượt ngân sách." },
-  { id: "q4", code: "BG-2025-0139", customer: "Thủy sản Bình Định", contact: "Anh Kiên", line: "Line 2", owner: "Bùi Ngọc H", created: "05/06", valid: "19/06", status: "expired", items: [
-    { desc: "Chứng nhận HACCP CODEX", qty: 1, price: 90_000_000 },
-  ] },
-  { id: "q5", code: "BG-2025-0138", customer: "Cty CP May Nhà Bè", contact: "Ms. Trang", line: "Line 2", owner: "Trần Thị B", created: "03/06", valid: "17/06", status: "sent", items: [
-    { desc: "Gia hạn ISO 14001:2015", qty: 1, price: 45_000_000 },
-    { desc: "Đánh giá bổ sung ISO 45001", qty: 1, price: 55_000_000 },
-  ] },
-  { id: "q6", code: "BG-2025-0137", customer: "Học viện Nông nghiệp VN", contact: "TS. Long", line: "Line 1", owner: "Lê Minh C", created: "02/06", valid: "16/06", status: "draft", items: [
-    { desc: "Khóa Lead Auditor ISO 9001 — 5 học viên", qty: 5, price: 12_500_000 },
-  ] },
-];
-
 const STATUS_META: Record<Status, { label: string; cls: string; icon: typeof CheckCircle2 }> = {
   draft:    { label: "Nháp", cls: "bg-muted text-muted-foreground border-border", icon: FileText },
   sent:     { label: "Đã gửi", cls: "bg-info/15 text-info border-info/30", icon: Send },

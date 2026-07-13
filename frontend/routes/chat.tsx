@@ -68,7 +68,7 @@ interface Message {
     emoji: string;
     createdAt: string;
   }>;
-  replyTo?: any;
+  replyTo?: Message | null;
   isDeleted: boolean;
   createdAt: string;
   updatedAt: string;

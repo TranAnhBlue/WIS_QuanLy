@@ -2,12 +2,14 @@
   "name": "wis-backend",
   "version": "1.0.0",
   "description": "WIS QuanLy backend service with MongoDB API",
-  "main": "src/simple-server.js",
+  "main": "src/server.js",
   "type": "module",
   "scripts": {
-    "dev": "nodemon src/simple-server.js",
-    "start": "node src/simple-server.js",
-    "seed": "node src/scripts/seed.js"
+    "dev": "nodemon src/server.js",
+    "start": "node src/server.js",
+    "seed": "node src/scripts/seed.js",
+    "check:api": "node scripts/diagnostics/test-endpoints.js",
+    "check:attendance": "node scripts/diagnostics/check-all-attendance.js"
   },
   "keywords": [
     "nodejs",

@@ -115,15 +115,6 @@ function UsersPage() {
     console.log('✅ Access granted - loading users');
   }, [isAuthenticated, session, hasPermission, navigate]);
 
-  // Show loading while checking permissions
-  if (!isAuthenticated || !session) {
-    return null;
-  }
-
-  if (!hasPermission("manage_users")) {
-    return null;
-  }
-
   // Load users from MongoDB API
   useEffect(() => {
     loadUsers();
@@ -198,6 +189,11 @@ function UsersPage() {
       ...byCompany,
     };
   }, [users]);
+
+  // Render guards must stay after every hook to preserve React's hook order.
+  if (!isAuthenticated || !session || !hasPermission("manage_users")) {
+    return null;
+  }
 
   const openCreate = () => {
     setEditingUser(null);
