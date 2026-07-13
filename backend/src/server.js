@@ -8,10 +8,12 @@ import path from "path";
 import { fileURLToPath } from "url";
 import Attendance from "./models/Attendance.js";
 import User from "./models/User.js";
+import Notification from "./models/Notification.js";
 import chatRoutes from "./routes/chatRoutes.js";
 import projectRoutes from "./routes/projectRoutes.js";
 import businessRoutes from "./routes/businessRoutes.js";
 import { register } from "./controllers/authController.js";
+import notificationRoutes from "./routes/notificationRoutes.js";
 
 dotenv.config();
 
@@ -29,9 +31,11 @@ app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 console.log("🔄 Connecting to MongoDB...");
 mongoose
   .connect(process.env.MONGODB_URI)
-  .then(() => {
+  .then(async () => {
     console.log("✅ MongoDB Connected");
     console.log("📊 Database:", mongoose.connection.name);
+    // Keep notification indexes aligned after schema changes.
+    await Notification.syncIndexes();
   })
   .catch((err) => console.error("❌ MongoDB Error:", err));
 
@@ -821,6 +825,7 @@ app.use("/api/chat", protect, chatRoutes);
 // Use project routes with authentication middleware
 app.use("/api", protect, projectRoutes);
 app.use("/api", protect, businessRoutes);
+app.use("/api", protect, notificationRoutes);
 
 // Consistent JSON errors for all modular routes.
 app.use((error, req, res, next) => {

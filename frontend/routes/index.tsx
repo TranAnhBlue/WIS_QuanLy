@@ -307,11 +307,19 @@ function DashboardPage() {
   const [active, setActive] = useState("dashboard");
   const [company, setCompany] = useState("group");
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [dashboard, setDashboard] = useState<{ users: number; attendanceToday: number; projects: number; resources: Record<string, number>; revenue: Record<string, number>; employeesByLine: Record<string, number>; projectRows: typeof PROJECTS; activities: typeof ACTIVITY } | null>(null);
 
   useEffect(() => {
     if (isAuthenticated) apiRequest<{ stats: typeof dashboard }>("/api/dashboard")
       .then((r) => setDashboard(r.stats)).catch((e) => message.error(e.message));
+  }, [isAuthenticated]);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    apiRequest<{ count: number }>("/api/notifications/unread-count")
+      .then((result) => setUnreadNotifications(result.count))
+      .catch(() => setUnreadNotifications(0));
   }, [isAuthenticated]);
 
   const liveRevenue = REVENUE.map((r) => ({
@@ -449,6 +457,7 @@ function DashboardPage() {
                     const isActive = active === item.id;
                     const routeMap: Record<string, string> = { 
                       chat: "/chat", 
+                      notifications: "/notifications",
                       training: "/training", 
                       hrm: "/hr", 
                       rewards: "/reward", 
@@ -603,10 +612,14 @@ function DashboardPage() {
             ))}
           </div>
 
-          <button className="relative size-9 grid place-items-center rounded-md hover:bg-surface transition">
+          <Link to="/notifications" className="relative size-9 grid place-items-center rounded-md hover:bg-surface transition" aria-label="Mở thông báo">
             <Bell className="size-4" />
-            <span className="absolute top-1.5 right-1.5 size-2 rounded-full bg-destructive" />
-          </button>
+            {unreadNotifications > 0 && (
+              <span className="absolute -right-1 -top-1 grid min-w-5 place-items-center rounded-full bg-destructive px-1 text-[10px] font-semibold leading-5 text-destructive-foreground">
+                {unreadNotifications > 99 ? "99+" : unreadNotifications}
+              </span>
+            )}
+          </Link>
         </header>
 
         {/* Content */}

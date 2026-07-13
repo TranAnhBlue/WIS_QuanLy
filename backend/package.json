@@ -9,7 +9,8 @@
     "start": "node src/server.js",
     "seed": "node src/scripts/seed.js",
     "check:api": "node scripts/diagnostics/test-endpoints.js",
-    "check:attendance": "node scripts/diagnostics/check-all-attendance.js"
+    "check:attendance": "node scripts/diagnostics/check-all-attendance.js",
+    "check:notifications": "node scripts/diagnostics/test-notifications.js"
   },
   "keywords": [
     "nodejs",

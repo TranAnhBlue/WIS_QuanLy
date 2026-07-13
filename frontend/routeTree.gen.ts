@@ -17,6 +17,7 @@ import { Route as RegisterRouteImport } from './routes/register'
 import { Route as QuotationsRouteImport } from './routes/quotations'
 import { Route as ProjectsRouteImport } from './routes/projects'
 import { Route as ProfileRouteImport } from './routes/profile'
+import { Route as NotificationsRouteImport } from './routes/notifications'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as HrRouteImport } from './routes/hr'
 import { Route as ContractsRouteImport } from './routes/contracts'
@@ -67,6 +68,11 @@ const ProjectsRoute = ProjectsRouteImport.update({
 const ProfileRoute = ProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const NotificationsRoute = NotificationsRouteImport.update({
+  id: '/notifications',
+  path: '/notifications',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -136,6 +142,7 @@ export interface FileRoutesByFullPath {
   '/contracts': typeof ContractsRoute
   '/hr': typeof HrRoute
   '/login': typeof LoginRoute
+  '/notifications': typeof NotificationsRoute
   '/profile': typeof ProfileRoute
   '/projects': typeof ProjectsRoute
   '/quotations': typeof QuotationsRoute
@@ -157,6 +164,7 @@ export interface FileRoutesByTo {
   '/contracts': typeof ContractsRoute
   '/hr': typeof HrRoute
   '/login': typeof LoginRoute
+  '/notifications': typeof NotificationsRoute
   '/profile': typeof ProfileRoute
   '/projects': typeof ProjectsRoute
   '/quotations': typeof QuotationsRoute
@@ -179,6 +187,7 @@ export interface FileRoutesById {
   '/contracts': typeof ContractsRoute
   '/hr': typeof HrRoute
   '/login': typeof LoginRoute
+  '/notifications': typeof NotificationsRoute
   '/profile': typeof ProfileRoute
   '/projects': typeof ProjectsRoute
   '/quotations': typeof QuotationsRoute
@@ -202,6 +211,7 @@ export interface FileRouteTypes {
     | '/contracts'
     | '/hr'
     | '/login'
+    | '/notifications'
     | '/profile'
     | '/projects'
     | '/quotations'
@@ -223,6 +233,7 @@ export interface FileRouteTypes {
     | '/contracts'
     | '/hr'
     | '/login'
+    | '/notifications'
     | '/profile'
     | '/projects'
     | '/quotations'
@@ -244,6 +255,7 @@ export interface FileRouteTypes {
     | '/contracts'
     | '/hr'
     | '/login'
+    | '/notifications'
     | '/profile'
     | '/projects'
     | '/quotations'
@@ -266,6 +278,7 @@ export interface RootRouteChildren {
   ContractsRoute: typeof ContractsRoute
   HrRoute: typeof HrRoute
   LoginRoute: typeof LoginRoute
+  NotificationsRoute: typeof NotificationsRoute
   ProfileRoute: typeof ProfileRoute
   ProjectsRoute: typeof ProjectsRoute
   QuotationsRoute: typeof QuotationsRoute
@@ -332,6 +345,13 @@ declare module '@tanstack/react-router' {
       path: '/profile'
       fullPath: '/profile'
       preLoaderRoute: typeof ProfileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/notifications': {
+      id: '/notifications'
+      path: '/notifications'
+      fullPath: '/notifications'
+      preLoaderRoute: typeof NotificationsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -437,6 +457,7 @@ const rootRouteChildren: RootRouteChildren = {
   ContractsRoute: ContractsRoute,
   HrRoute: HrRoute,
   LoginRoute: LoginRoute,
+  NotificationsRoute: NotificationsRoute,
   ProfileRoute: ProfileRoute,
   ProjectsRoute: ProjectsRoute,
   QuotationsRoute: QuotationsRoute,
