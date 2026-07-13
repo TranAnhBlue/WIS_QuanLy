@@ -44,10 +44,16 @@ export type Company = "WIS_GROUP" | "WCERT" | "SCT_VIET" | "ICT_VIET";
 export type Department =
   // WIS Group Departments
   | "WIS_ADMIN"
+  | "WIS_EXECUTIVE"
+  | "WIS_HR"
   | "WIS_IT"
   | "WIS_FINANCE"
   // WCERT Departments (Tầng 5)
   | "WCERT_CERT"
+  | "WCERT_TECHNICAL"
+  | "WCERT_SALES"
+  | "WCERT_ACCOUNTING"
+  | "WCERT_OFFICE"
   | "WCERT_AUDIT"
   | "WCERT_TRAINING"
   // SCT VIET Departments (Tầng 3)
@@ -60,6 +66,9 @@ export type Department =
   | "ICT_VIETGAP"
   | "ICT_ORGANIC"
   | "ICT_TOURISM"
+  | "ICT_CONSULTING"
+  | "ICT_TRADEMARK"
+  | "ICT_LEGAL"
   | "ICT_ADMIN";
 
 // ==========================================
@@ -69,22 +78,22 @@ export const COMPANY_INFO: Record<Company, { name: string; floor: string; depart
   WIS_GROUP: {
     name: "WIS Group",
     floor: "Tầng Điều hành",
-    departments: ["WIS_ADMIN", "WIS_IT", "WIS_FINANCE"],
+    departments: ["WIS_EXECUTIVE", "WIS_IT", "WIS_HR"],
   },
   WCERT: {
-    name: "WCERT",
+    name: "LINE 2",
     floor: "Tầng 5",
-    departments: ["WCERT_CERT", "WCERT_AUDIT", "WCERT_TRAINING"],
+    departments: ["WCERT_TECHNICAL", "WCERT_SALES", "WCERT_ACCOUNTING", "WCERT_OFFICE", "WCERT_AUDIT", "WCERT_TRAINING"],
   },
   SCT_VIET: {
-    name: "SCT VIET",
+    name: "LINE 1",
     floor: "Tầng 3",
-    departments: ["SCT_CONSULTING", "SCT_TRAINING", "SCT_SCIENCE", "SCT_LEGAL", "SCT_ADMIN"],
+    departments: ["SCT_CONSULTING", "SCT_TRAINING", "SCT_SCIENCE", "SCT_LEGAL"],
   },
   ICT_VIET: {
-    name: "ICT VIET",
+    name: "LINE 3",
     floor: "Tầng 2",
-    departments: ["ICT_VIETGAP", "ICT_ORGANIC", "ICT_TOURISM", "ICT_ADMIN"],
+    departments: ["ICT_TOURISM", "ICT_CONSULTING", "ICT_VIETGAP", "ICT_TRADEMARK", "ICT_LEGAL", "ICT_ORGANIC", "ICT_ADMIN"],
   },
 };
 
@@ -94,10 +103,16 @@ export const COMPANY_INFO: Record<Company, { name: string; floor: string; depart
 export const DEPARTMENT_INFO: Record<Department, { name: string; company: Company }> = {
   // WIS Group
   WIS_ADMIN: { name: "Ban Điều hành", company: "WIS_GROUP" },
+  WIS_EXECUTIVE: { name: "Ban Điều hành", company: "WIS_GROUP" },
+  WIS_HR: { name: "Phòng Nhân sự", company: "WIS_GROUP" },
   WIS_IT: { name: "Phòng IT", company: "WIS_GROUP" },
   WIS_FINANCE: { name: "Phòng Tài chính", company: "WIS_GROUP" },
   // WCERT
   WCERT_CERT: { name: "Phòng Phạm vi tiêu chuẩn quy chuẩn", company: "WCERT" },
+  WCERT_TECHNICAL: { name: "Phòng Kỹ thuật chứng nhận", company: "WCERT" },
+  WCERT_SALES: { name: "Phòng Kinh doanh", company: "WCERT" },
+  WCERT_ACCOUNTING: { name: "Phòng Kế toán", company: "WCERT" },
+  WCERT_OFFICE: { name: "Phòng Hành chính", company: "WCERT" },
   WCERT_AUDIT: { name: "Phòng Đánh giá", company: "WCERT" },
   WCERT_TRAINING: { name: "Phòng Đào tạo", company: "WCERT" },
   // SCT VIET
@@ -110,6 +125,9 @@ export const DEPARTMENT_INFO: Record<Department, { name: string; company: Compan
   ICT_VIETGAP: { name: "Phòng VietGAP", company: "ICT_VIET" },
   ICT_ORGANIC: { name: "Phòng Hữu cơ", company: "ICT_VIET" },
   ICT_TOURISM: { name: "Phòng Du lịch", company: "ICT_VIET" },
+  ICT_CONSULTING: { name: "Phòng Tư vấn", company: "ICT_VIET" },
+  ICT_TRADEMARK: { name: "Phòng Nhãn hiệu", company: "ICT_VIET" },
+  ICT_LEGAL: { name: "Phòng Pháp lý", company: "ICT_VIET" },
   ICT_ADMIN: { name: "Phòng Hành chính", company: "ICT_VIET" },
 };
 

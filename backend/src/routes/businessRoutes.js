@@ -6,6 +6,51 @@ import Project from '../models/Project.js';
 
 const router = express.Router();
 const resources = new Set(['employees', 'contracts', 'quotations', 'certifications', 'rewards', 'trainings', 'training-lessons', 'settings']);
+const resourceLabels = {
+  employees: 'Nhân sự',
+  contracts: 'Hợp đồng',
+  quotations: 'Báo giá',
+  certifications: 'Chứng nhận',
+  rewards: 'Khen thưởng',
+  trainings: 'Đào tạo',
+  'training-lessons': 'Bài học đào tạo',
+  settings: 'Thiết lập',
+};
+
+function getActivityTarget(record) {
+  const data = record.data || {};
+  const targetsByResource = {
+    employees: data.name || data.email,
+    contracts: data.title || data.customer,
+    quotations: data.customer || data.title,
+    certifications: data.standard || data.customer,
+    rewards: data.name || data.employeeName || data.title,
+    trainings: data.title || data.name,
+    'training-lessons': data.title || data.name,
+    settings: data.name || data.label,
+  };
+
+  return targetsByResource[record.resource]
+    || data.name
+    || data.title
+    || data.standard
+    || data.customer
+    || data.code
+    || record._id.toString();
+}
+
+// Vietnam is UTC+7 and does not use daylight saving time. Build an explicit
+// UTC range so dashboard counts are stable regardless of the server timezone.
+function getVietnamDayRange(now = new Date()) {
+  const offsetMs = 7 * 60 * 60 * 1000;
+  const vietnamNow = new Date(now.getTime() + offsetMs);
+  const start = new Date(Date.UTC(
+    vietnamNow.getUTCFullYear(),
+    vietnamNow.getUTCMonth(),
+    vietnamNow.getUTCDate(),
+  ) - offsetMs);
+  return { start, end: new Date(start.getTime() + 24 * 60 * 60 * 1000) };
+}
 
 const valid = (req, res, next) => resources.has(req.params.resource)
   ? next()
@@ -48,24 +93,41 @@ router.delete('/business/:resource/:id', valid, async (req, res, next) => {
 
 router.get('/dashboard', async (req, res, next) => {
   try {
-    const [users, attendanceToday, projectRows, grouped, contracts, recent] = await Promise.all([
-      User.countDocuments({ isActive: { $ne: false } }),
-      Attendance.countDocuments({ date: new Date().toISOString().slice(0, 10) }),
+    const { start: todayStart, end: todayEnd } = getVietnamDayRange();
+    const [users, usersByCompany, attendanceToday, projectRows, grouped, contracts, recent] = await Promise.all([
+      User.countDocuments({}),
+      User.aggregate([{ $group: { _id: '$company', count: { $sum: 1 } } }]),
+      Attendance.countDocuments({ checkInTime: { $gte: todayStart, $lt: todayEnd } }),
       Project.find({ isDeleted: false }).sort('-updatedAt').limit(5).lean(),
       BusinessRecord.aggregate([{ $group: { _id: '$resource', count: { $sum: 1 } } }]),
       BusinessRecord.find({ resource: 'contracts' }).lean(),
       BusinessRecord.find().sort('-updatedAt').limit(5).lean(),
     ]);
     const resources = Object.fromEntries(grouped.map(x => [x._id, x.count]));
+    // Nhân sự uses the User collection as its single source of truth.
+    resources.employees = users;
+    const companyUserCounts = Object.fromEntries(usersByCompany.map(x => [x._id, x.count]));
+    const employeesByLine = {
+      'Line 1': companyUserCounts.SCT_VIET || 0,
+      'Line 2': companyUserCounts.WCERT || 0,
+      'Line 3': companyUserCounts.ICT_VIET || 0,
+    };
     const revenue = contracts.reduce((acc, row) => {
       const line = row.data?.line || 'Khác';
       acc[line] = (acc[line] || 0) + Number(row.data?.value || 0);
       return acc;
     }, {});
     res.json({ success: true, stats: {
-      users, attendanceToday, projects: await Project.countDocuments({ isDeleted: false }), resources, revenue,
+      users, attendanceToday, projects: await Project.countDocuments({ isDeleted: false }), resources, revenue, employeesByLine,
       projectRows: projectRows.map(p => ({ id: p._id, code: p.code, name: p.name, company: p.line, pm: p.pm, progress: p.progress, status: p.status, due: p.due })),
-      activities: recent.map(r => ({ time: r.updatedAt.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }), actor: 'Hệ thống', action: `cập nhật ${r.resource}`, target: r.data?.code || r.data?.name || r._id.toString(), value: null, tone: 'info' })),
+      activities: recent.map(r => ({
+        time: r.updatedAt.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Ho_Chi_Minh' }),
+        actor: 'Hệ thống',
+        action: `cập nhật ${resourceLabels[r.resource] || 'dữ liệu'}`,
+        target: getActivityTarget(r),
+        value: null,
+        tone: 'info',
+      })),
     } });
   } catch (error) { next(error); }
 });

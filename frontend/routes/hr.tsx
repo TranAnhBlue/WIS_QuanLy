@@ -7,7 +7,10 @@ import {
   GraduationCap, MoreHorizontal, Download, Trash2, Save,
 } from "lucide-react";
 import { message } from "antd";
-import { businessApi } from "@/lib/backend-api";
+import { apiRequest } from "@/lib/backend-api";
+import { type Company as AccountCompany, type Role } from "@/lib/permissions";
+import { useAuth } from "@/contexts/AuthContext";
+import { AppDatePicker, isValidDateValue, parseDateValue } from "@/components/ui/app-date-picker";
 
 export const Route = createFileRoute("/hr")({
   head: () => ({
@@ -20,7 +23,7 @@ export const Route = createFileRoute("/hr")({
 });
 
 type Status = "active" | "probation" | "leave" | "resigned";
-type Company = "Line 2" | "Line 1" | "Line 3";
+type Company = string;
 type Employee = {
   id: string;
   code: string;
@@ -37,6 +40,9 @@ type Employee = {
   kpi: number;
   certifications: string[];
   avatar: string;
+  role?: Role;
+  companyCode?: AccountCompany;
+  departmentCode?: string;
 };
 
 const SEED: Employee[] = [
@@ -54,7 +60,7 @@ const SEED: Employee[] = [
   { id: "e12", code: "SC-018", name: "Trịnh Quốc M", title: "Giảng viên cấp cao", department: "Đào tạo", company: "Line 1", email: "m.trinh@sctviet.vn", phone: "0938 765 432", location: "TP.HCM", joinedAt: "2021-05-18", status: "leave", manager: "Đỗ Thanh G", kpi: 75, certifications: ["ISO 27001", "TOT"], avatar: "TM" },
 ];
 
-const COMPANIES: ("Tất cả" | Company)[] = ["Tất cả", "Line 2", "Line 1", "Line 3"];
+const ALL = "Tất cả";
 const STATUS_META: Record<Status, { label: string; cls: string; dot: string }> = {
   active: { label: "Đang làm", cls: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 ring-emerald-500/30", dot: "bg-emerald-500" },
   probation: { label: "Thử việc", cls: "bg-amber-500/10 text-amber-700 dark:text-amber-300 ring-amber-500/30", dot: "bg-amber-500" },
@@ -62,7 +68,97 @@ const STATUS_META: Record<Status, { label: string; cls: string; dot: string }> =
   resigned: { label: "Đã nghỉ", cls: "bg-rose-500/10 text-rose-700 dark:text-rose-300 ring-rose-500/30", dot: "bg-rose-500" },
 };
 
-const STORAGE_KEY = "wis_hr_employees";
+type HrAccount = {
+  id: string;
+  name: string;
+  email: string;
+  role: Role;
+  company: AccountCompany;
+  department: string;
+  phone?: string;
+  avatar?: string;
+  joinDate?: string;
+  createdAt?: string;
+  status: "active" | "inactive";
+};
+
+const ROLE_LABELS: Record<Role, string> = {
+  intern: "Thực tập sinh",
+  staff: "Nhân viên",
+  specialist: "Chuyên viên",
+  senior_specialist: "Chuyên viên cao cấp",
+  team_leader: "Trưởng nhóm",
+  dept_deputy: "Phó phòng",
+  dept_manager: "Trưởng phòng",
+  company_deputy: "Phó Giám đốc công ty",
+  company_ceo: "Giám đốc công ty",
+  group_admin: "Quản trị hệ thống",
+  group_director: "Giám đốc điều hành",
+  group_ceo: "Tổng Giám đốc",
+};
+
+const COMPANY_LABELS: Record<AccountCompany, string> = {
+  WIS_GROUP: "Tập đoàn WIS",
+  WCERT: "LINE 2",
+  SCT_VIET: "LINE 1",
+  ICT_VIET: "LINE 3",
+};
+
+const DEPARTMENT_LABELS: Record<string, string> = {
+  WIS_EXECUTIVE: "Ban Điều hành",
+  WIS_IT: "Phòng Công nghệ thông tin",
+  WIS_HR: "Phòng Nhân sự",
+  WIS_ADMIN: "Phòng Hành chính",
+  WIS_FINANCE: "Phòng Tài chính",
+  WCERT_TECHNICAL: "Phòng Kỹ thuật chứng nhận",
+  WCERT_SALES: "Phòng Kinh doanh",
+  WCERT_ACCOUNTING: "Phòng Kế toán",
+  WCERT_OFFICE: "Phòng Hành chính",
+  WCERT_AUDIT: "Phòng Đánh giá",
+  WCERT_CERT: "Phòng Chứng nhận",
+  WCERT_TRAINING: "Phòng Đào tạo",
+  SCT_CONSULTING: "Phòng Tư vấn",
+  SCT_TRAINING: "Phòng Đào tạo",
+  SCT_SCIENCE: "Phòng Nhiệm vụ khoa học",
+  SCT_LEGAL: "Phòng Pháp lý và bảo hộ",
+  SCT_ADMIN: "Phòng Hành chính",
+  ICT_TOURISM: "Phòng Du lịch",
+  ICT_CONSULTING: "Phòng Tư vấn",
+  ICT_VIETGAP: "Phòng VietGAP",
+  ICT_TRADEMARK: "Phòng Nhãn hiệu",
+  ICT_LEGAL: "Phòng Pháp lý",
+  ICT_ORGANIC: "Phòng Hữu cơ",
+  ICT_ADMIN: "Phòng Hành chính",
+};
+
+const COMPANY_DEPARTMENTS: Record<AccountCompany, string[]> = {
+  WIS_GROUP: ["WIS_EXECUTIVE", "WIS_IT", "WIS_HR"],
+  WCERT: ["WCERT_TECHNICAL", "WCERT_SALES", "WCERT_ACCOUNTING", "WCERT_OFFICE", "WCERT_AUDIT", "WCERT_TRAINING"],
+  SCT_VIET: ["SCT_CONSULTING", "SCT_TRAINING", "SCT_SCIENCE", "SCT_LEGAL"],
+  ICT_VIET: ["ICT_TOURISM", "ICT_CONSULTING", "ICT_VIETGAP", "ICT_TRADEMARK", "ICT_LEGAL", "ICT_ORGANIC", "ICT_ADMIN"],
+};
+
+function accountToEmployee(account: HrAccount): Employee {
+  return {
+    id: account.id,
+    code: account.email.split("@")[0].toUpperCase(),
+    name: account.name,
+    title: ROLE_LABELS[account.role] ?? account.role,
+    department: DEPARTMENT_LABELS[account.department] ?? account.department.replaceAll("_", " "),
+    company: COMPANY_LABELS[account.company] ?? account.company,
+    email: account.email,
+    phone: account.phone || "—",
+    location: COMPANY_LABELS[account.company] || "—",
+    joinedAt: (account.joinDate || account.createdAt || "").slice(0, 10) || "—",
+    status: account.status === "active" ? "active" : "resigned",
+    kpi: 0,
+    certifications: [],
+    avatar: avatarFrom(account.name),
+    role: account.role,
+    companyCode: account.company,
+    departmentCode: account.department,
+  };
+}
 
 function avatarFrom(name: string) {
   const parts = name.trim().split(/\s+/);
@@ -72,8 +168,10 @@ function avatarFrom(name: string) {
 }
 
 function HRPage() {
+  const { hasPermission, user: currentUser } = useAuth();
+  const canManage = hasPermission("manage_hr");
   const [employees, setEmployees] = useState<Employee[]>([]);
-  const [company, setCompany] = useState<(typeof COMPANIES)[number]>("Tất cả");
+  const [company, setCompany] = useState<string>(ALL);
   const [status, setStatus] = useState<"all" | Status>("all");
   const [department, setDepartment] = useState<string>("Tất cả");
   const [query, setQuery] = useState("");
@@ -82,14 +180,20 @@ function HRPage() {
   const [editTarget, setEditTarget] = useState<Employee | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<Employee | null>(null);
 
-  useEffect(() => { businessApi.list<Employee>('employees').then(setEmployees).catch(e => message.error(e.message)); }, []);
+  const loadEmployees = () => {
+    apiRequest<{ employees: HrAccount[] }>("/api/hr/employees")
+      .then(({ employees }) => setEmployees(employees.map(accountToEmployee)))
+      .catch(e => message.error(e instanceof Error ? e.message : "Không thể tải danh sách nhân sự"));
+  };
+  useEffect(loadEmployees, []);
 
-  const departments = useMemo(() => ["Tất cả", ...Array.from(new Set(employees.map(e => e.department)))], [employees]);
+  const companies = useMemo(() => [ALL, ...Array.from(new Set(employees.map(e => e.company)))], [employees]);
+  const departments = useMemo(() => [ALL, ...Array.from(new Set(employees.map(e => e.department)))], [employees]);
 
   const filtered = useMemo(() => employees.filter(e =>
-    (company === "Tất cả" || e.company === company) &&
+    (company === ALL || e.company === company) &&
     (status === "all" || e.status === status) &&
-    (department === "Tất cả" || e.department === department) &&
+    (department === ALL || e.department === department) &&
     (query.trim() === "" ||
       e.name.toLowerCase().includes(query.toLowerCase()) ||
       e.code.toLowerCase().includes(query.toLowerCase()) ||
@@ -99,27 +203,48 @@ function HRPage() {
   const stats = useMemo(() => {
     const total = employees.length || 1;
     const active = employees.filter(e => e.status === "active").length;
-    const probation = employees.filter(e => e.status === "probation").length;
-    const avgKpi = Math.round(employees.reduce((s, e) => s + e.kpi, 0) / total);
-    return { total: employees.length, active, probation, avgKpi };
+    const inactive = employees.filter(e => e.status !== "active").length;
+    const companyCount = new Set(employees.map(e => e.company)).size;
+    return { total: employees.length, active, inactive, companyCount };
   }, [employees]);
 
-  function openCreate() { setEditTarget(null); setFormOpen(true); }
-  function openEdit(emp: Employee) { setEditTarget(emp); setFormOpen(true); setSelected(null); }
-  async function saveEmployee(data: Employee) {
-    const exists = employees.some(p => p.id === data.id);
-    try {
-      const saved = exists ? await businessApi.update('employees', data) : await businessApi.create<Employee>('employees', data);
-      setEmployees(prev => exists ? prev.map(p => p.id === saved.id ? saved : p) : [saved, ...prev]);
-    } catch (e) { message.error(e instanceof Error ? e.message : 'Không thể lưu nhân sự'); return; }
-    setFormOpen(false);
+  function openCreate() {
     setEditTarget(null);
+    setFormOpen(true);
   }
-  async function deleteEmployee(emp: Employee) {
-    try { await businessApi.remove('employees', emp.id); } catch (e) { message.error(e instanceof Error ? e.message : 'Không thể xóa'); return; }
-    setEmployees(prev => prev.filter(p => p.id !== emp.id));
-    setConfirmDelete(null);
+
+  function openEdit(employee: Employee) {
+    setEditTarget(employee);
     setSelected(null);
+    setFormOpen(true);
+  }
+
+  async function saveEmployee(data: EmployeeAccountFormData) {
+    try {
+      const path = editTarget ? `/api/hr/employees/${editTarget.id}` : "/api/hr/employees";
+      await apiRequest(path, {
+        method: editTarget ? "PUT" : "POST",
+        body: JSON.stringify(data),
+      });
+      message.success(editTarget ? "Đã cập nhật nhân sự" : "Đã thêm nhân sự");
+      setFormOpen(false);
+      setEditTarget(null);
+      loadEmployees();
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : "Không thể lưu nhân sự");
+    }
+  }
+
+  async function deleteEmployee(employee: Employee) {
+    try {
+      await apiRequest(`/api/hr/employees/${employee.id}`, { method: "DELETE" });
+      message.success("Đã xóa nhân sự");
+      setConfirmDelete(null);
+      setSelected(null);
+      loadEmployees();
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : "Không thể xóa nhân sự");
+    }
   }
 
   return (
@@ -134,23 +259,25 @@ function HRPage() {
           </div>
           <div className="flex-1">
             <h1 className="text-base font-semibold leading-tight">Quản lý Nhân sự</h1>
-            <p className="text-xs text-muted-foreground">Hệ sinh thái xanh · {stats.total} nhân viên · Lưu cục bộ</p>
+            <p className="text-xs text-muted-foreground">Hệ sinh thái xanh · {stats.total} nhân sự từ tài khoản hệ thống</p>
           </div>
           <button className="inline-flex items-center gap-1.5 rounded-lg border border-border/60 px-3 py-1.5 text-xs font-medium hover:bg-muted/50">
             <Download className="h-3.5 w-3.5" /> Xuất Excel
           </button>
-          <button onClick={openCreate} className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:opacity-90">
-            <UserPlus className="h-3.5 w-3.5" /> Thêm nhân viên
-          </button>
+          {canManage && (
+            <button onClick={openCreate} className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:opacity-90">
+              <UserPlus className="h-3.5 w-3.5" /> Thêm nhân sự
+            </button>
+          )}
         </div>
       </header>
 
       <div className="grid grid-cols-12 gap-4 p-6">
         <section className="col-span-12 grid grid-cols-2 gap-3 md:grid-cols-4">
-          <KpiCard icon={<Users className="h-4 w-4" />} label="Tổng nhân sự" value={stats.total.toString()} hint="3 công ty" tone="amber" trend="cập nhật" up />
+          <KpiCard icon={<Users className="h-4 w-4" />} label="Tổng nhân sự" value={stats.total.toString()} hint={`${stats.companyCount} đơn vị`} tone="amber" trend="cập nhật" up />
           <KpiCard icon={<CheckCircle2 className="h-4 w-4" />} label="Đang làm việc" value={stats.active.toString()} hint={`${Math.round(stats.active / Math.max(stats.total,1) * 100)}% tổng`} tone="emerald" trend="ổn định" />
-          <KpiCard icon={<Clock className="h-4 w-4" />} label="Thử việc" value={stats.probation.toString()} hint="cần đánh giá" tone="sky" trend="theo dõi" up />
-          <KpiCard icon={<Target className="h-4 w-4" />} label="KPI trung bình" value={`${stats.avgKpi}%`} hint="quý này" tone="violet" trend="+3.2% so QT trước" up />
+          <KpiCard icon={<Clock className="h-4 w-4" />} label="Ngừng hoạt động" value={stats.inactive.toString()} hint="tài khoản" tone="sky" trend="theo dõi" />
+          <KpiCard icon={<Building2 className="h-4 w-4" />} label="Đơn vị" value={stats.companyCount.toString()} hint="trong hệ thống" tone="violet" trend="đang quản lý" />
         </section>
 
         <section className="col-span-12 rounded-xl border border-border/60 bg-card/60 p-3">
@@ -165,22 +292,20 @@ function HRPage() {
               />
             </div>
             <Pill icon={<Building2 className="h-3.5 w-3.5" />}>
-              <select value={company} onChange={e => setCompany(e.target.value as (typeof COMPANIES)[number])} className="bg-transparent text-xs font-medium outline-none">
-                {COMPANIES.map(c => <option key={c}>{c}</option>)}
+              <select value={company} onChange={e => setCompany(e.target.value)} className="hr-select bg-transparent text-xs font-medium text-foreground outline-none">
+                {companies.map(c => <option className="bg-card text-foreground" key={c}>{c}</option>)}
               </select>
             </Pill>
             <Pill icon={<Briefcase className="h-3.5 w-3.5" />}>
-              <select value={department} onChange={e => setDepartment(e.target.value)} className="bg-transparent text-xs font-medium outline-none">
-                {departments.map(d => <option key={d}>{d}</option>)}
+              <select value={department} onChange={e => setDepartment(e.target.value)} className="hr-select bg-transparent text-xs font-medium text-foreground outline-none">
+                {departments.map(d => <option className="bg-card text-foreground" key={d}>{d}</option>)}
               </select>
             </Pill>
             <Pill icon={<Filter className="h-3.5 w-3.5" />}>
-              <select value={status} onChange={e => setStatus(e.target.value as "all" | Status)} className="bg-transparent text-xs font-medium outline-none">
-                <option value="all">Mọi trạng thái</option>
-                <option value="active">Đang làm</option>
-                <option value="probation">Thử việc</option>
-                <option value="leave">Nghỉ phép</option>
-                <option value="resigned">Đã nghỉ</option>
+              <select value={status} onChange={e => setStatus(e.target.value as "all" | Status)} className="hr-select bg-transparent text-xs font-medium text-foreground outline-none">
+                <option className="bg-card text-foreground" value="all">Mọi trạng thái</option>
+                <option className="bg-card text-foreground" value="active">Đang làm</option>
+                <option className="bg-card text-foreground" value="resigned">Đã nghỉ</option>
               </select>
             </Pill>
             <div className="ml-auto text-xs text-muted-foreground">{filtered.length} kết quả</div>
@@ -196,7 +321,7 @@ function HRPage() {
                 <th className="px-4 py-3 text-left font-medium">Phòng ban</th>
                 <th className="px-4 py-3 text-left font-medium">Công ty</th>
                 <th className="px-4 py-3 text-left font-medium">Trạng thái</th>
-                <th className="px-4 py-3 text-left font-medium">KPI</th>
+                <th className="px-4 py-3 text-left font-medium">Liên hệ</th>
                 <th className="px-4 py-3 text-right font-medium">Thao tác</th>
               </tr>
             </thead>
@@ -223,22 +348,19 @@ function HRPage() {
                       {STATUS_META[e.status].label}
                     </span>
                   </td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <div className="h-1.5 w-20 overflow-hidden rounded-full bg-muted">
-                        <div className={`h-full rounded-full ${e.kpi >= 85 ? "bg-emerald-500" : e.kpi >= 75 ? "bg-amber-500" : "bg-rose-500"}`} style={{ width: `${e.kpi}%` }} />
-                      </div>
-                      <span className="text-xs font-medium tabular-nums">{e.kpi}%</span>
-                    </div>
-                  </td>
+                  <td className="px-4 py-3 text-xs text-muted-foreground">{e.phone}</td>
                   <td className="px-4 py-3 text-right">
                     <div className="inline-flex items-center gap-1" onClick={ev => ev.stopPropagation()}>
-                      <button onClick={() => openEdit(e)} title="Chỉnh sửa" className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground">
-                        <Edit3 className="h-3.5 w-3.5" />
-                      </button>
-                      <button onClick={() => setConfirmDelete(e)} title="Xóa" className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-rose-500/10 hover:text-rose-600">
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
+                      {canManage && (e.role !== "group_admin" || currentUser?.role === "group_admin") && (
+                        <button onClick={() => openEdit(e)} title="Chỉnh sửa" className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground">
+                          <Edit3 className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                      {canManage && (e.role !== "group_admin" || currentUser?.role === "group_admin") && (
+                        <button onClick={() => setConfirmDelete(e)} title="Xóa" className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-rose-500/10 hover:text-rose-600">
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      )}
                       <button onClick={() => setSelected(e)} title="Chi tiết" className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground">
                         <MoreHorizontal className="h-4 w-4" />
                       </button>
@@ -254,12 +376,12 @@ function HRPage() {
         </section>
       </div>
 
-      {selected && <EmployeeDrawer employee={selected} onClose={() => setSelected(null)} onEdit={() => openEdit(selected)} onDelete={() => setConfirmDelete(selected)} />}
-      {formOpen && <EmployeeFormModal initial={editTarget} onClose={() => { setFormOpen(false); setEditTarget(null); }} onSave={saveEmployee} />}
+      {selected && <EmployeeDrawer employee={selected} onClose={() => setSelected(null)} onEdit={canManage && (selected.role !== "group_admin" || currentUser?.role === "group_admin") ? () => openEdit(selected) : undefined} onDelete={canManage && (selected.role !== "group_admin" || currentUser?.role === "group_admin") ? () => setConfirmDelete(selected) : undefined} />}
+      {formOpen && <EmployeeAccountModal initial={editTarget} onClose={() => { setFormOpen(false); setEditTarget(null); }} onSave={saveEmployee} />}
       {confirmDelete && (
         <ConfirmModal
-          title="Xóa nhân viên?"
-          message={`Bạn chắc chắn muốn xóa "${confirmDelete.name}" (${confirmDelete.code})? Hành động này không thể hoàn tác.`}
+          title="Xóa nhân sự?"
+          message={`Bạn chắc chắn muốn xóa "${confirmDelete.name}"? Tài khoản đăng nhập tương ứng cũng sẽ bị xóa.`}
           onCancel={() => setConfirmDelete(null)}
           onConfirm={() => deleteEmployee(confirmDelete)}
         />
@@ -299,7 +421,7 @@ function Pill({ icon, children }: { icon: React.ReactNode; children: React.React
   );
 }
 
-function EmployeeDrawer({ employee, onClose, onEdit, onDelete }: { employee: Employee; onClose: () => void; onEdit: () => void; onDelete: () => void }) {
+function EmployeeDrawer({ employee, onClose, onEdit, onDelete }: { employee: Employee; onClose: () => void; onEdit?: () => void; onDelete?: () => void }) {
   const meta = STATUS_META[employee.status];
   return (
     <div className="fixed inset-0 z-50 flex">
@@ -331,55 +453,132 @@ function EmployeeDrawer({ employee, onClose, onEdit, onDelete }: { employee: Emp
             <Info icon={<Calendar className="h-3.5 w-3.5" />} label="Vào làm" value={employee.joinedAt} />
           </div>
 
-          {employee.manager && (
-            <div className="rounded-lg border border-border/60 bg-muted/30 p-3 text-sm">
-              <div className="text-xs text-muted-foreground">Quản lý trực tiếp</div>
-              <div className="font-medium">{employee.manager}</div>
-            </div>
-          )}
-
-          <div>
-            <div className="mb-2 flex items-center justify-between">
-              <h3 className="text-sm font-semibold">KPI quý này</h3>
-              <span className="text-sm font-semibold tabular-nums">{employee.kpi}%</span>
-            </div>
-            <div className="h-2 overflow-hidden rounded-full bg-muted">
-              <div className={`h-full rounded-full ${employee.kpi >= 85 ? "bg-emerald-500" : employee.kpi >= 75 ? "bg-amber-500" : "bg-rose-500"}`} style={{ width: `${employee.kpi}%` }} />
-            </div>
-            <div className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
-              {employee.kpi >= 85 ? <Award className="h-3.5 w-3.5 text-emerald-500" /> : <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />}
-              {employee.kpi >= 85 ? "Vượt mục tiêu" : employee.kpi >= 75 ? "Đạt yêu cầu" : "Cần cải thiện"}
-            </div>
-          </div>
-
-          <div>
-            <h3 className="mb-2 flex items-center gap-1.5 text-sm font-semibold">
-              <GraduationCap className="h-4 w-4 text-muted-foreground" /> Chứng chỉ ({employee.certifications.length})
-            </h3>
-            {employee.certifications.length === 0 ? (
-              <div className="rounded-lg border border-dashed border-border/60 p-3 text-xs text-muted-foreground">Chưa có chứng chỉ chuyên môn.</div>
-            ) : (
-              <div className="flex flex-wrap gap-1.5">
-                {employee.certifications.map(c => (
-                  <span key={c} className="rounded-md bg-amber-500/10 px-2 py-1 text-xs font-medium text-amber-700 ring-1 ring-amber-500/30 dark:text-amber-300">{c}</span>
-                ))}
-              </div>
-            )}
-          </div>
-
           <div className="flex gap-2 pt-2">
-            <button onClick={onEdit} className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:opacity-90">
-              <Edit3 className="h-3.5 w-3.5" /> Chỉnh sửa
-            </button>
-            <button onClick={onDelete} className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-rose-500/40 px-3 py-2 text-sm font-medium text-rose-600 hover:bg-rose-500/10">
-              <Trash2 className="h-3.5 w-3.5" /> Xóa
-            </button>
+            {onEdit && (
+              <button onClick={onEdit} className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:opacity-90">
+                <Edit3 className="h-3.5 w-3.5" /> Chỉnh sửa
+              </button>
+            )}
+            {onDelete && (
+              <button onClick={onDelete} className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-rose-500/40 px-3 py-2 text-sm font-medium text-rose-500 hover:bg-rose-500/10">
+                <Trash2 className="h-3.5 w-3.5" /> Xóa
+              </button>
+            )}
             <button className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-border/60 px-3 py-2 text-sm font-medium hover:bg-muted">
               <FileText className="h-3.5 w-3.5" /> Hồ sơ
             </button>
           </div>
         </div>
       </aside>
+    </div>
+  );
+}
+
+type EmployeeAccountFormData = {
+  name: string;
+  email: string;
+  password?: string;
+  role: Role;
+  company: AccountCompany;
+  department: string;
+  phone: string;
+  status: "active" | "inactive";
+  joinDate: string;
+};
+
+function EmployeeAccountModal({ initial, onClose, onSave }: {
+  initial: Employee | null;
+  onClose: () => void;
+  onSave: (data: EmployeeAccountFormData) => void;
+}) {
+  const { user: currentUser } = useAuth();
+  const isEdit = Boolean(initial);
+  const defaultCompany = initial?.companyCode ?? "WIS_GROUP";
+  const [form, setForm] = useState<EmployeeAccountFormData>({
+    name: initial?.name ?? "",
+    email: initial?.email ?? "",
+    password: "",
+    role: initial?.role ?? "staff",
+    company: defaultCompany,
+    department: initial?.departmentCode ?? COMPANY_DEPARTMENTS[defaultCompany][0],
+    phone: initial?.phone === "—" ? "" : initial?.phone ?? "",
+    status: initial?.status === "resigned" ? "inactive" : "active",
+    joinDate: initial?.joinedAt === "—" ? new Date().toISOString().slice(0, 10) : initial?.joinedAt ?? new Date().toISOString().slice(0, 10),
+  });
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  function update<K extends keyof EmployeeAccountFormData>(key: K, value: EmployeeAccountFormData[K]) {
+    setForm(prev => ({ ...prev, [key]: value }));
+  }
+
+  function changeCompany(company: AccountCompany) {
+    setForm(prev => ({ ...prev, company, department: COMPANY_DEPARTMENTS[company][0] }));
+  }
+
+  function submit() {
+    const nextErrors: Record<string, string> = {};
+    if (form.name.trim().length < 2) nextErrors.name = "Vui lòng nhập họ tên";
+    if (!/^\S+@\S+\.\S+$/.test(form.email)) nextErrors.email = "Email không hợp lệ";
+    if (!isEdit && (!form.password || form.password.length < 6)) nextErrors.password = "Mật khẩu cần ít nhất 6 ký tự";
+    if (form.password && form.password.length < 6) nextErrors.password = "Mật khẩu cần ít nhất 6 ký tự";
+    if (form.phone && !/^[0-9]{10,11}$/.test(form.phone)) nextErrors.phone = "Số điện thoại cần 10–11 chữ số";
+    if (!isValidDateValue(form.joinDate)) nextErrors.joinDate = "Ngày vào làm không hợp lệ";
+    if (parseDateValue(form.joinDate)?.isAfter(new Date(), "day")) nextErrors.joinDate = "Ngày vào làm không được ở tương lai";
+    setErrors(nextErrors);
+    if (Object.keys(nextErrors).length === 0) onSave({ ...form, password: form.password || undefined });
+  }
+
+  const selectCls = `${inputCls} hr-select text-foreground`;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <button className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} aria-label="Đóng" />
+      <div className="relative max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-border/60 bg-card shadow-2xl">
+        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border/60 bg-card/95 px-5 py-3 backdrop-blur">
+          <div>
+            <div className="text-sm font-semibold">{isEdit ? "Cập nhật nhân sự" : "Thêm nhân sự"}</div>
+            <div className="text-xs text-muted-foreground">Dữ liệu được đồng bộ với tài khoản hệ thống</div>
+          </div>
+          <button onClick={onClose} className="rounded-md p-1 hover:bg-muted"><X className="h-4 w-4" /></button>
+        </div>
+
+        <div className="grid grid-cols-1 gap-3 p-5 md:grid-cols-2">
+          <Field label="Họ và tên *" error={errors.name}><input className={inputCls} value={form.name} onChange={e => update("name", e.target.value)} /></Field>
+          <Field label="Email *" error={errors.email}><input className={inputCls} type="email" value={form.email} onChange={e => update("email", e.target.value)} /></Field>
+          <Field label={isEdit ? "Mật khẩu mới (để trống nếu không đổi)" : "Mật khẩu *"} error={errors.password}><input className={inputCls} type="password" value={form.password} onChange={e => update("password", e.target.value)} /></Field>
+          <Field label="Số điện thoại" error={errors.phone}><input className={inputCls} value={form.phone} onChange={e => update("phone", e.target.value.replace(/\D/g, ""))} /></Field>
+          <Field label="Vai trò">
+            <select className={selectCls} value={form.role} onChange={e => update("role", e.target.value as Role)}>
+              {(Object.keys(ROLE_LABELS) as Role[])
+                .filter(role => role !== "group_admin" || currentUser?.role === "group_admin")
+                .map(role => <option className="bg-card text-foreground" key={role} value={role}>{ROLE_LABELS[role]}</option>)}
+            </select>
+          </Field>
+          <Field label="Công ty">
+            <select className={selectCls} value={form.company} onChange={e => changeCompany(e.target.value as AccountCompany)}>
+              {(Object.keys(COMPANY_LABELS) as AccountCompany[]).map(company => <option className="bg-card text-foreground" key={company} value={company}>{COMPANY_LABELS[company]}</option>)}
+            </select>
+          </Field>
+          <Field label="Phòng ban">
+            <select className={selectCls} value={form.department} onChange={e => update("department", e.target.value)}>
+              {COMPANY_DEPARTMENTS[form.company].map(department => <option className="bg-card text-foreground" key={department} value={department}>{DEPARTMENT_LABELS[department] ?? department}</option>)}
+            </select>
+          </Field>
+          <Field label="Trạng thái">
+            <select className={selectCls} value={form.status} onChange={e => update("status", e.target.value as "active" | "inactive")}>
+              <option className="bg-card text-foreground" value="active">Đang làm việc</option>
+              <option className="bg-card text-foreground" value="inactive">Ngừng hoạt động</option>
+            </select>
+          </Field>
+          <Field label="Ngày vào làm" error={errors.joinDate}><AppDatePicker value={form.joinDate} outputFormat="YYYY-MM-DD" onChange={joinDate => update("joinDate", joinDate)} /></Field>
+        </div>
+
+        <div className="sticky bottom-0 flex justify-end gap-2 border-t border-border/60 bg-card/95 px-5 py-3 backdrop-blur">
+          <button onClick={onClose} className="rounded-lg border border-border/60 px-4 py-2 text-sm font-medium hover:bg-muted">Hủy</button>
+          <button onClick={submit} className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90">
+            <Save className="h-3.5 w-3.5" /> {isEdit ? "Lưu thay đổi" : "Thêm nhân sự"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -480,7 +679,7 @@ function EmployeeFormModal({ initial, onClose, onSave }: { initial: Employee | n
           <Field label="Email *" error={errors.email}><input value={form.email} onChange={e => set("email", e.target.value)} className={inputCls} type="email" placeholder="a@wcert.vn" /></Field>
           <Field label="Số điện thoại"><input value={form.phone} onChange={e => set("phone", e.target.value)} className={inputCls} placeholder="0912..." /></Field>
           <Field label="Địa điểm"><input value={form.location} onChange={e => set("location", e.target.value)} className={inputCls} /></Field>
-          <Field label="Ngày vào làm"><input value={form.joinedAt} onChange={e => set("joinedAt", e.target.value)} type="date" className={inputCls} /></Field>
+          <Field label="Ngày vào làm"><AppDatePicker value={form.joinedAt} outputFormat="YYYY-MM-DD" onChange={joinedAt => set("joinedAt", joinedAt)} /></Field>
           <Field label="Quản lý trực tiếp"><input value={form.manager ?? ""} onChange={e => set("manager", e.target.value)} className={inputCls} placeholder="Tên quản lý" /></Field>
           <Field label={`KPI (%) — ${form.kpi}`}>
             <input type="range" min={0} max={100} value={form.kpi} onChange={e => set("kpi", Number(e.target.value))} className="w-full accent-amber-500" />

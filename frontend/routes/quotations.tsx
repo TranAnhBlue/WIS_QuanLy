@@ -7,6 +7,8 @@ import {
 import { message } from "antd";
 import { ConfirmDialog } from "./certifications";
 import { businessApi } from "@/lib/backend-api";
+import { CurrencyInput } from "@/components/ui/currency-input";
+import { formatVND } from "@/lib/currency";
 
 export const Route = createFileRoute("/quotations")({
   head: () => ({
@@ -62,7 +64,7 @@ const STATUS_META: Record<Status, { label: string; cls: string; icon: typeof Che
   expired:  { label: "Hết hạn", cls: "bg-warning/15 text-warning border-warning/30", icon: Clock },
 };
 
-const fmt = (n: number) => "₫ " + n.toLocaleString("vi-VN");
+const fmt = formatVND;
 
 const emptyQuote = (): Quote => ({
   id: crypto.randomUUID(), code: "", customer: "", contact: "", line: "Line 2",
@@ -256,8 +258,8 @@ function QuotationsPage() {
                         <tr key={i} className="border-t border-border">
                           <td className="p-2">{l.desc}</td>
                           <td className="p-2 text-right font-mono">{l.qty}</td>
-                          <td className="p-2 text-right font-mono">{l.price.toLocaleString("vi-VN")}</td>
-                          <td className="p-2 text-right font-mono">{(l.qty * l.price).toLocaleString("vi-VN")}</td>
+                          <td className="p-2 text-right font-mono">{formatVND(l.price)}</td>
+                          <td className="p-2 text-right font-mono">{formatVND(l.qty * l.price)}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -335,7 +337,7 @@ function QuoteForm({ quote, onClose, onSave }: { quote: Quote; onClose: () => vo
                 <div key={i} className="grid grid-cols-12 gap-2 items-center">
                   <input placeholder="Mô tả" value={l.desc} onChange={e => setLine(i, { desc: e.target.value })} className={`${inp} col-span-6`} />
                   <input type="number" value={l.qty} onChange={e => setLine(i, { qty: +e.target.value })} className={`${inp} col-span-2`} />
-                  <input type="number" value={l.price} onChange={e => setLine(i, { price: +e.target.value })} className={`${inp} col-span-3`} />
+                  <div className="col-span-3"><CurrencyInput value={l.price} onChange={price => setLine(i, { price })} className={inp} placeholder="Đơn giá" /></div>
                   <button type="button" onClick={() => setF({ ...f, items: f.items.filter((_, idx) => idx !== i) })} className="col-span-1 p-1 text-destructive hover:bg-destructive/10 rounded"><Trash2 className="size-4" /></button>
                 </div>
               ))}

@@ -7,6 +7,8 @@ import {
 import { message } from "antd";
 import { useAuth } from "@/contexts/AuthContext";
 import { ConfirmDialog } from "./certifications";
+import { CurrencyInput } from "@/components/ui/currency-input";
+import { formatVND } from "@/lib/currency";
 
 export const Route = createFileRoute("/projects")({
   head: () => ({
@@ -331,7 +333,7 @@ function ProjectsPage() {
                 <div><div className="text-[11px] uppercase text-muted-foreground mb-1">Line</div><div>{sel.line}</div></div>
                 <div><div className="text-[11px] uppercase text-muted-foreground mb-1">Bắt đầu</div><div className="flex items-center gap-1"><Calendar className="size-3.5" />{sel.start}</div></div>
                 <div><div className="text-[11px] uppercase text-muted-foreground mb-1">Hạn cuối</div><div className="flex items-center gap-1"><Calendar className="size-3.5" />{sel.due}</div></div>
-                <div className="col-span-2"><div className="text-[11px] uppercase text-muted-foreground mb-1">Ngân sách</div><div className="font-display font-semibold">₫ {sel.budget} triệu</div></div>
+                <div className="col-span-2"><div className="text-[11px] uppercase text-muted-foreground mb-1">Ngân sách</div><div className="font-display font-semibold">{formatVND(sel.budget * 1_000_000)}</div></div>
               </div>
               <div className="pt-3 border-t border-border flex gap-2">
                 <button onClick={() => setEditing(sel)} className="flex-1 h-9 rounded bg-primary text-primary-foreground text-sm font-medium flex items-center justify-center gap-1.5"><Pencil className="size-3.5" />Sửa</button>
@@ -381,7 +383,7 @@ function ProjectForm({ project, onClose, onSave }: { project: Project; onClose: 
             </select></Field>
             <Field label="Bắt đầu"><input value={f.start} onChange={e => setF({ ...f, start: e.target.value })} className={inp} placeholder="dd/mm" /></Field>
             <Field label="Hạn cuối"><input value={f.due} onChange={e => setF({ ...f, due: e.target.value })} className={inp} placeholder="dd/mm" /></Field>
-            <Field label="Ngân sách (triệu)"><input type="number" value={f.budget} onChange={e => setF({ ...f, budget: +e.target.value })} className={inp} /></Field>
+            <Field label="Ngân sách"><CurrencyInput value={f.budget * 1_000_000} onChange={value => setF({ ...f, budget: value / 1_000_000 })} className={inp} /></Field>
             <Field label="Số task"><input type="number" value={f.tasksTotal} onChange={e => setF({ ...f, tasksTotal: +e.target.value })} className={inp} /></Field>
             <Field label="Task hoàn thành"><input type="number" value={f.tasksDone} onChange={e => setF({ ...f, tasksDone: +e.target.value })} className={inp} /></Field>
           </div>

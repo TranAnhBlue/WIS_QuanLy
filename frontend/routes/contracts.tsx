@@ -8,6 +8,9 @@ import {
 import { message } from "antd";
 import { ConfirmDialog } from "./certifications";
 import { businessApi } from "@/lib/backend-api";
+import { AppDatePicker, isDateBefore, isValidDateValue } from "@/components/ui/app-date-picker";
+import { CurrencyInput } from "@/components/ui/currency-input";
+import { formatVND } from "@/lib/currency";
 
 export const Route = createFileRoute("/contracts")({
   head: () => ({
@@ -67,7 +70,7 @@ const STATUS_META: Record<Status, { label: string; cls: string; icon: typeof Che
   terminated:     { label: "Chấm dứt", cls: "bg-destructive/15 text-destructive border-destructive/30", icon: AlertTriangle },
 };
 
-const fmt = (n: number) => "₫ " + n.toLocaleString("vi-VN");
+const fmt = formatVND;
 
 const emptyContract = (): Contract => ({
   id: crypto.randomUUID(), code: "", title: "", customer: "", line: "Line 2",
@@ -304,6 +307,25 @@ function ContractForm({ contract, onClose, onSave }: { contract: Contract; onClo
   function setMs(i: number, patch: Partial<Milestone>) {
     setF({ ...f, milestones: f.milestones.map((m, idx) => idx === i ? { ...m, ...patch } : m) });
   }
+  function submit() {
+    if (Boolean(f.signed) !== Boolean(f.expires)) {
+      message.error("Vui lòng nhập đủ ngày ký và ngày hết hạn");
+      return;
+    }
+    if (f.signed && (!isValidDateValue(f.signed) || !isValidDateValue(f.expires))) {
+      message.error("Ngày ký hoặc ngày hết hạn không hợp lệ");
+      return;
+    }
+    if (f.signed && isDateBefore(f.expires, f.signed)) {
+      message.error("Ngày hết hạn không được trước ngày ký");
+      return;
+    }
+    if (f.milestones.some(m => m.due && !isValidDateValue(m.due))) {
+      message.error("Có hạn thanh toán không hợp lệ");
+      return;
+    }
+    onSave(f);
+  }
   return (
     <div className="fixed inset-0 bg-black/50 z-30 flex items-center justify-center p-4" onClick={onClose}>
       <div className="bg-card border border-border rounded-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
@@ -311,7 +333,7 @@ function ContractForm({ contract, onClose, onSave }: { contract: Contract; onClo
           <h3 className="font-display font-semibold">{isNew ? "Tạo hợp đồng mới" : "Sửa hợp đồng"}</h3>
           <button onClick={onClose} className="p-1 rounded hover:bg-muted"><X className="size-4" /></button>
         </div>
-        <form onSubmit={e => { e.preventDefault(); onSave(f); }} className="p-5 space-y-3 text-sm">
+        <form onSubmit={e => { e.preventDefault(); submit(); }} className="p-5 space-y-3 text-sm">
           <div className="grid grid-cols-2 gap-3">
             <Field label="Mã HĐ"><input required value={f.code} onChange={e => setF({ ...f, code: e.target.value })} className={inp} /></Field>
             <Field label="Line"><select value={f.line} onChange={e => setF({ ...f, line: e.target.value as Line })} className={inp}><option>Line 1</option><option>Line 2</option><option>Line 3</option></select></Field>
@@ -324,9 +346,9 @@ function ContractForm({ contract, onClose, onSave }: { contract: Contract; onClo
               <option value="draft">Nháp</option><option value="pending-sign">Chờ ký</option>
               <option value="active">Đang thực hiện</option><option value="completed">Hoàn thành</option><option value="terminated">Chấm dứt</option>
             </select></Field>
-            <Field label="Ngày ký"><input value={f.signed} onChange={e => setF({ ...f, signed: e.target.value })} className={inp} placeholder="dd/mm/yyyy" /></Field>
-            <Field label="Hết hạn"><input value={f.expires} onChange={e => setF({ ...f, expires: e.target.value })} className={inp} placeholder="dd/mm/yyyy" /></Field>
-            <Field label="Giá trị (VNĐ)"><input type="number" value={f.value} onChange={e => setF({ ...f, value: +e.target.value })} className={inp} /></Field>
+            <Field label="Ngày ký"><AppDatePicker value={f.signed} onChange={signed => setF({ ...f, signed })} /></Field>
+            <Field label="Hết hạn"><AppDatePicker value={f.expires} onChange={expires => setF({ ...f, expires })} /></Field>
+            <Field label="Giá trị hợp đồng"><CurrencyInput value={f.value} onChange={value => setF({ ...f, value })} className={inp} /></Field>
           </div>
           <div>
             <div className="flex items-center justify-between mb-2">
@@ -337,8 +359,8 @@ function ContractForm({ contract, onClose, onSave }: { contract: Contract; onClo
               {f.milestones.map((m, i) => (
                 <div key={i} className="grid grid-cols-12 gap-2 items-center">
                   <input placeholder="Tên mốc" value={m.name} onChange={e => setMs(i, { name: e.target.value })} className={`${inp} col-span-4`} />
-                  <input type="number" placeholder="Số tiền" value={m.amount} onChange={e => setMs(i, { amount: +e.target.value })} className={`${inp} col-span-3`} />
-                  <input placeholder="Hạn" value={m.due} onChange={e => setMs(i, { due: e.target.value })} className={`${inp} col-span-2`} />
+                  <div className="col-span-3"><CurrencyInput value={m.amount} onChange={amount => setMs(i, { amount })} className={inp} placeholder="Số tiền" /></div>
+                  <div className="col-span-2"><AppDatePicker value={m.due} onChange={due => setMs(i, { due })} placeholder="Hạn" /></div>
                   <label className="col-span-2 flex items-center gap-1.5 text-xs"><input type="checkbox" checked={m.paid} onChange={e => setMs(i, { paid: e.target.checked })} />Đã trả</label>
                   <button type="button" onClick={() => setF({ ...f, milestones: f.milestones.filter((_, idx) => idx !== i) })} className="col-span-1 p-1 text-destructive hover:bg-destructive/10 rounded"><Trash2 className="size-4" /></button>
                 </div>

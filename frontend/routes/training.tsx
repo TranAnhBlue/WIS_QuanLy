@@ -7,6 +7,7 @@ import {
   Video, FileSpreadsheet, Briefcase, Sparkles,
 } from "lucide-react";
 import { message } from "antd";
+import { formatVND } from "@/lib/currency";
 import { businessApi } from "@/lib/backend-api";
 
 export const Route = createFileRoute("/training")({
@@ -56,7 +57,7 @@ const KPI = [
   { label: "Khóa đang chạy", value: 14, delta: "+3", icon: PlayCircle, color: "text-info" },
   { label: "Học viên tháng này", value: 289, delta: "+18%", icon: Users, color: "text-success" },
   { label: "Tỉ lệ hoàn thành", value: "87%", delta: "+4 pts", icon: CheckCircle2, color: "text-primary" },
-  { label: "Doanh thu đào tạo", value: "₫ 412M", delta: "+12.4%", icon: TrendingUp, color: "text-warning" },
+  { label: "Doanh thu đào tạo", value: formatVND(412_000_000), delta: "+12.4%", icon: TrendingUp, color: "text-warning" },
 ];
 
 const CAT_META: Record<Category, { label: string; cls: string }> = {
@@ -256,7 +257,7 @@ function TrainingPage() {
                       )}
                       {c.price && (
                         <span className="text-[11px] font-mono text-foreground">
-                          {c.price.toFixed(1)}M ₫
+                          {formatVND(c.price * 1_000_000)}
                         </span>
                       )}
                       <ChevronRight className="size-4 text-muted-foreground group-hover:text-primary transition" />

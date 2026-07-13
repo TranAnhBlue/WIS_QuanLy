@@ -139,6 +139,29 @@
   }
 }
 
+/* Native selects need an explicit scheme on Windows; otherwise their popup
+   uses a white background with inherited light text. */
+.hr-select {
+  color-scheme: dark;
+}
+
+.hr-select option {
+  background-color: var(--card);
+  color: var(--foreground);
+}
+
+.wis-date-picker.ant-picker {
+  min-height: 2.25rem;
+  border-color: var(--border);
+  background: var(--background);
+}
+
+.wis-date-picker.ant-picker input,
+.wis-date-picker.ant-picker .ant-picker-suffix,
+.wis-date-picker.ant-picker .ant-picker-clear {
+  color: var(--foreground);
+}
+
 @utility font-display {
   font-family: var(--font-display);
   letter-spacing: -0.02em;

@@ -10,9 +10,9 @@ import {
 import { message } from "antd";
 import { useAuth } from "@/contexts/AuthContext";
 import { DEPARTMENT_INFO, type Role, type Company, type Department, type Permission } from "@/lib/permissions";
-import { useChatUnreadCount } from "@/hooks/useChatUnreadCount";
 import { apiRequest } from "@/lib/backend-api";
 import wisLogo from "@/assets/logo-wis.jpg";
+import { formatVND } from "@/lib/currency";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -30,7 +30,6 @@ type ModuleItem = {
   id: string; 
   label: string; 
   icon: typeof LayoutDashboard; 
-  badge?: string;
   requiresPermission?: string;
   minRole?: Role;
   roles?: Role[];
@@ -111,8 +110,7 @@ const MODULES: ModuleGroup[] = [
       { 
         id: "notifications", 
         label: "Thông báo", 
-        icon: Bell, 
-        badge: "5"
+        icon: Bell
       },
       { 
         id: "attendance", 
@@ -146,8 +144,7 @@ const MODULES: ModuleGroup[] = [
       { 
         id: "projects", 
         label: "Dự án", 
-        icon: FolderKanban, 
-        badge: "27",
+        icon: FolderKanban,
         requiresPermission: "view_projects"
       },
     ],
@@ -217,15 +214,13 @@ const MODULES: ModuleGroup[] = [
       { 
         id: "rewards", 
         label: "Tích thưởng", 
-        icon: Award, 
-        badge: "NEW",
+        icon: Award,
         requiresPermission: "view_rewards"
       },
       { 
         id: "approvals", 
         label: "Duyệt", 
-        icon: CheckCircle2, 
-        badge: "8",
+        icon: CheckCircle2,
         minRole: "team_leader"
       },
       { 
@@ -275,15 +270,15 @@ const COMPANIES = [
 ];
 
 const REVENUE = [
-  { company: "Line 1", value: 1965, delta: 8.1, trend: "up", desc: "Tư vấn & đào tạo • 10 nhân sự" },
-  { company: "Line 2", value: 4280, delta: 12.4, trend: "up", desc: "Phạm vi tiêu chuẩn quy chuẩn ISO • 15 nhân sự" },
-  { company: "Line 3", value: 1120, delta: -3.2, trend: "down", desc: "VietGAP & du lịch • 8 nhân sự" },
+  { company: "Line 1", value: 1965, delta: 8.1, trend: "up", desc: "Tư vấn & đào tạo" },
+  { company: "Line 2", value: 4280, delta: 12.4, trend: "up", desc: "Phạm vi tiêu chuẩn quy chuẩn ISO" },
+  { company: "Line 3", value: 1120, delta: -3.2, trend: "down", desc: "VietGAP & du lịch" },
 ];
 
 const KPIS = [
   { label: "Lead mới", value: 47, sub: "+12 tuần này", icon: TrendingUp, tone: "info" },
   { label: "Khách hàng mới", value: 18, sub: "+5 tuần này", icon: Users, tone: "success" },
-  { label: "Hợp đồng ký", value: 9, sub: "₫ 1.84 tỷ", icon: FileSignature, tone: "primary" },
+  { label: "Hợp đồng ký", value: 9, sub: formatVND(1_840_000_000), icon: FileSignature, tone: "primary" },
   { label: "Dự án đang chạy", value: 27, sub: "23 đúng tiến độ", icon: FolderKanban, tone: "info" },
   { label: "Dự án quá hạn", value: 4, sub: "Cần xử lý gấp", icon: AlertTriangle, tone: "destructive" },
   { label: "Task quá hạn", value: 8, sub: "Hôm nay", icon: Clock, tone: "warning" },
@@ -298,29 +293,33 @@ const PROJECTS = [
 ];
 
 const ACTIVITY = [
-  { time: "09:42", actor: "Nguyễn Văn A", action: "đã ký hợp đồng", target: "HĐ-2025-184", value: "₫ 285tr", tone: "success" },
+  { time: "09:42", actor: "Nguyễn Văn A", action: "đã ký hợp đồng", target: "HĐ-2025-184", value: formatVND(285_000_000), tone: "success" },
   { time: "09:18", actor: "Trần Thị B", action: "tạo báo giá mới", target: "BG-2025-072", value: null, tone: "info" },
   { time: "08:55", actor: "Hệ thống", action: "cảnh báo dự án quá hạn", target: "IC-2025-007", value: null, tone: "destructive" },
   { time: "08:30", actor: "Lê Minh C", action: "hoàn thành đánh giá GĐ1", target: "WC-2025-038", value: null, tone: "success" },
-  { time: "07:55", actor: "Phạm Quốc D", action: "yêu cầu duyệt chi phí", target: "₫ 12.5tr", value: null, tone: "warning" },
+  { time: "07:55", actor: "Phạm Quốc D", action: "yêu cầu duyệt chi phí", target: formatVND(12_500_000), value: null, tone: "warning" },
 ];
 
 function DashboardPage() {
   const navigate = useNavigate();
   const { session, user, isAuthenticated, isLoading, logout, hasPermission } = useAuth();
-  const { unreadCount } = useChatUnreadCount();
   const [collapsed, setCollapsed] = useState(false);
   const [active, setActive] = useState("dashboard");
   const [company, setCompany] = useState("group");
   const [showUserMenu, setShowUserMenu] = useState(false);
-  const [dashboard, setDashboard] = useState<{ users: number; attendanceToday: number; projects: number; resources: Record<string, number>; revenue: Record<string, number>; projectRows: typeof PROJECTS; activities: typeof ACTIVITY } | null>(null);
+  const [dashboard, setDashboard] = useState<{ users: number; attendanceToday: number; projects: number; resources: Record<string, number>; revenue: Record<string, number>; employeesByLine: Record<string, number>; projectRows: typeof PROJECTS; activities: typeof ACTIVITY } | null>(null);
 
   useEffect(() => {
     if (isAuthenticated) apiRequest<{ stats: typeof dashboard }>("/api/dashboard")
       .then((r) => setDashboard(r.stats)).catch((e) => message.error(e.message));
   }, [isAuthenticated]);
 
-  const liveRevenue = REVENUE.map((r) => ({ ...r, value: Math.round((dashboard?.revenue?.[r.company] || 0) / 1_000_000), delta: 0 }));
+  const liveRevenue = REVENUE.map((r) => ({
+    ...r,
+    value: dashboard?.revenue?.[r.company] || 0,
+    delta: 0,
+    desc: `${r.desc} • ${dashboard?.employeesByLine?.[r.company] ?? 0} nhân sự`,
+  }));
   const liveKpis = [
     { label: "Người dùng", value: dashboard?.users ?? 0, sub: "Tài khoản đang quản lý", icon: Users, tone: "info", to: "/users", adminOnly: true },
     { label: "Chấm công hôm nay", value: dashboard?.attendanceToday ?? 0, sub: "Bản ghi hôm nay", icon: CheckCircle2, tone: "success", to: "/attendance-management" },
@@ -328,7 +327,7 @@ function DashboardPage() {
     { label: "Dự án", value: dashboard?.projects ?? 0, sub: "Dự án đang quản lý", icon: FolderKanban, tone: "info", to: "/projects" },
     { label: "Báo giá", value: dashboard?.resources?.quotations ?? 0, sub: "Báo giá đang quản lý", icon: FileText, tone: "warning", to: "/quotations" },
     { label: "Nhân sự", value: dashboard?.resources?.employees ?? 0, sub: "Hồ sơ nhân sự", icon: UserCog, tone: "destructive", to: "/hr" },
-  ].filter((k) => !k.adminOnly || user.role === "group_admin");
+  ].filter((k) => !k.adminOnly || user?.role === "group_admin");
   const liveActivities = dashboard?.activities || [];
 
   // Redirect to login if not authenticated
@@ -475,22 +474,7 @@ function DashboardPage() {
                         )}
                         <Icon className="size-4 shrink-0" />
                         {!collapsed && (
-                          <>
-                            <span className="flex-1 text-left truncate">{item.label}</span>
-                            {item.id === "chat" && unreadCount > 0 ? (
-                              <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${
-                                isActive ? "bg-primary text-primary-foreground" : "bg-destructive text-destructive-foreground"
-                              }`}>
-                                {unreadCount}
-                              </span>
-                            ) : item.badge ? (
-                              <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${
-                                isActive ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
-                              }`}>
-                                {item.badge}
-                              </span>
-                            ) : null}
-                          </>
+                          <span className="flex-1 text-left truncate">{item.label}</span>
                         )}
                       </>
                     );
@@ -669,8 +653,7 @@ function DashboardPage() {
                     </span>
                   </div>
                   <div className="flex items-baseline gap-1.5">
-                    <span className="font-display text-3xl font-semibold tabular-nums">{r.value.toLocaleString("vi-VN")}</span>
-                    <span className="text-sm text-muted-foreground">triệu ₫</span>
+                    <span className="font-display text-3xl font-semibold tabular-nums">{formatVND(r.value)}</span>
                   </div>
                   <div className="text-xs text-muted-foreground mt-2">{r.desc}</div>
                   {/* Mini sparkline */}
@@ -727,7 +710,9 @@ function DashboardPage() {
               <div className="flex items-center justify-between px-5 py-4 border-b border-border">
                 <div>
                   <h2 className="font-display font-semibold">Dự án trọng điểm</h2>
-                  <p className="text-xs text-muted-foreground mt-0.5">5/27 dự án đang theo dõi cấp CEO</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {dashboard?.projectRows?.length ?? 0}/{dashboard?.projects ?? 0} dự án đang theo dõi cấp CEO
+                  </p>
                 </div>
                 <button className="text-xs text-primary hover:underline flex items-center gap-1">
                   Xem tất cả <ArrowUpRight className="size-3" />
@@ -745,11 +730,16 @@ function DashboardPage() {
                 </thead>
                 <tbody>
                   {(dashboard?.projectRows || []).map((p) => {
-                    const statusMap = {
+                    const statusMap = ({
+                      planning: { label: "Lập kế hoạch", cls: "bg-info/10 text-info" },
                       "on-track": { label: "Đúng tiến độ", cls: "bg-success/10 text-success" },
                       "at-risk": { label: "Rủi ro", cls: "bg-warning/10 text-warning" },
                       "overdue": { label: "Quá hạn", cls: "bg-destructive/10 text-destructive" },
-                    }[p.status]!;
+                      done: { label: "Hoàn thành", cls: "bg-primary/10 text-primary" },
+                    } as Record<string, { label: string; cls: string }>)[p.status] || {
+                      label: p.status || "Chưa xác định",
+                      cls: "bg-muted text-muted-foreground",
+                    };
                     return (
                       <tr key={p.code} className="border-b border-border/50 last:border-0 hover:bg-surface/50 transition">
                         <td className="px-5 py-3">
@@ -858,7 +848,7 @@ function DashboardPage() {
             <div className="flex items-center justify-between px-5 py-4 border-b border-border">
               <div>
                 <h2 className="font-display font-semibold">Hoạt động hôm nay</h2>
-                <p className="text-xs text-muted-foreground mt-0.5">Cập nhật theo thời gian thực từ 18 module</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Cập nhật theo thời gian thực từ các phân hệ nghiệp vụ</p>
               </div>
               <button className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1">
                 Lọc <ChevronDown className="size-3" />

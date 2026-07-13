@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import { message } from "antd";
 import { businessApi } from "@/lib/backend-api";
+import { AppDatePicker, isDateBefore, isValidDateValue } from "@/components/ui/app-date-picker";
 
 export const Route = createFileRoute("/certifications")({
   head: () => ({
@@ -235,6 +236,21 @@ function CertificationsPage() {
 function CertForm({ cert, onClose, onSave }: { cert: Cert; onClose: () => void; onSave: (c: Cert) => void }) {
   const [f, setF] = useState<Cert>(cert);
   const isNew = !cert.code;
+  function submit() {
+    if (f.status !== "draft" && (!f.issued || !f.expires)) {
+      message.error("Ngày cấp và ngày hết hạn là bắt buộc khi chứng chỉ có hiệu lực");
+      return;
+    }
+    if ((f.issued && !isValidDateValue(f.issued)) || (f.expires && !isValidDateValue(f.expires))) {
+      message.error("Ngày cấp hoặc ngày hết hạn không hợp lệ");
+      return;
+    }
+    if (f.issued && f.expires && isDateBefore(f.expires, f.issued)) {
+      message.error("Ngày hết hạn không được trước ngày cấp");
+      return;
+    }
+    onSave(f);
+  }
   return (
     <div className="fixed inset-0 bg-black/50 z-30 flex items-center justify-center p-4" onClick={onClose}>
       <div className="bg-card border border-border rounded-lg w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
@@ -242,15 +258,15 @@ function CertForm({ cert, onClose, onSave }: { cert: Cert; onClose: () => void; 
           <h3 className="font-display font-semibold">{isNew ? "Cấp phạm vi mới" : "Sửa phạm vi"}</h3>
           <button onClick={onClose} className="p-1 rounded hover:bg-muted"><X className="size-4" /></button>
         </div>
-        <form onSubmit={e => { e.preventDefault(); onSave(f); }} className="p-5 space-y-3 text-sm">
+        <form onSubmit={e => { e.preventDefault(); submit(); }} className="p-5 space-y-3 text-sm">
           <Field label="Mã"><input required value={f.code} onChange={e => setF({ ...f, code: e.target.value })} className={inp} placeholder="VD: WC-ISO-2025-042" /></Field>
           <Field label="Tiêu chuẩn"><input required value={f.standard} onChange={e => setF({ ...f, standard: e.target.value })} className={inp} placeholder="VD: ISO 9001:2015" /></Field>
           <Field label="Phạm vi áp dụng"><textarea required value={f.scope} onChange={e => setF({ ...f, scope: e.target.value })} className={`${inp} min-h-16`} /></Field>
           <div className="grid grid-cols-2 gap-3">
             <Field label="Khách hàng"><input required value={f.customer} onChange={e => setF({ ...f, customer: e.target.value })} className={inp} /></Field>
             <Field label="Line"><select value={f.line} onChange={e => setF({ ...f, line: e.target.value as Line })} className={inp}><option>Line 1</option><option>Line 2</option><option>Line 3</option></select></Field>
-            <Field label="Ngày cấp"><input value={f.issued} onChange={e => setF({ ...f, issued: e.target.value })} className={inp} placeholder="dd/mm/yyyy" /></Field>
-            <Field label="Hết hạn"><input value={f.expires} onChange={e => setF({ ...f, expires: e.target.value })} className={inp} placeholder="dd/mm/yyyy" /></Field>
+            <Field label="Ngày cấp"><AppDatePicker value={f.issued} onChange={issued => setF({ ...f, issued })} /></Field>
+            <Field label="Hết hạn"><AppDatePicker value={f.expires} onChange={expires => setF({ ...f, expires })} /></Field>
             <Field label="Trạng thái"><select value={f.status} onChange={e => setF({ ...f, status: e.target.value as Status })} className={inp}>
               <option value="draft">Nháp</option><option value="active">Còn hiệu lực</option>
               <option value="expiring">Sắp hết hạn</option><option value="expired">Hết hạn</option>

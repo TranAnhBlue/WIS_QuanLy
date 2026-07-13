@@ -4,12 +4,12 @@ import {
   Clock, ArrowLeft, Calendar, Download, Filter, Users, 
   CheckCircle2, XCircle, AlertTriangle, AlertCircle 
 } from "lucide-react";
-import { message, DatePicker, Select } from "antd";
+import { message, Select } from "antd";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import dayjs from "dayjs";
+import { AppDatePicker } from "@/components/ui/app-date-picker";
 
 export const Route = createFileRoute("/attendance-management")({
   component: AttendanceManagementPage,
@@ -210,16 +210,13 @@ function AttendanceManagementPage() {
             <div className="flex flex-wrap gap-4 items-center">
               <div className="flex items-center gap-2">
                 <Calendar className="h-4 w-4 text-muted-foreground" />
-                <DatePicker
-                  value={dayjs(selectedDate)}
-                  onChange={(date) => {
-                    if (date) {
-                      setSelectedDate(date.format('YYYY-MM-DD'));
-                    }
-                  }}
-                  format="DD/MM/YYYY"
-                  placeholder="Chọn ngày"
-                />
+                <div className="w-44">
+                  <AppDatePicker
+                    value={selectedDate}
+                    outputFormat="YYYY-MM-DD"
+                    onChange={(date) => date && setSelectedDate(date)}
+                  />
+                </div>
               </div>
 
               <div className="flex items-center gap-2">

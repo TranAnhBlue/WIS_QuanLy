@@ -243,6 +243,130 @@ app.get('/api/users/:id', protect, async (req, res) => {
   }
 });
 
+// Employee directory is sourced from user accounts created by the system admin.
+const hrViewRoles = new Set([
+  'staff', 'specialist', 'senior_specialist', 'team_leader',
+  'dept_deputy', 'dept_manager', 'company_deputy', 'company_ceo',
+  'group_admin', 'group_director', 'group_ceo',
+]);
+const hrManageRoles = new Set([
+  'dept_deputy', 'dept_manager', 'company_deputy', 'company_ceo',
+  'group_admin', 'group_director', 'group_ceo',
+]);
+
+app.get('/api/hr/employees', protect, async (req, res) => {
+  try {
+    const currentUser = await User.findById(req.user.id).select('role');
+
+    if (!currentUser || !hrViewRoles.has(currentUser.role)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Bạn không có quyền xem danh sách nhân sự',
+      });
+    }
+
+    const employees = await User.find({})
+      .select('-password')
+      .sort({ createdAt: -1 })
+      .lean();
+
+    res.json({
+      success: true,
+      count: employees.length,
+      employees: employees.map(({ _id, __v, password, ...employee }) => ({
+        ...employee,
+        id: _id.toString(),
+      })),
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+app.post('/api/hr/employees', protect, async (req, res) => {
+  try {
+    const currentUser = await User.findById(req.user.id).select('role');
+    if (!currentUser || !hrManageRoles.has(currentUser.role)) {
+      return res.status(403).json({ success: false, message: 'Bạn không có quyền thêm nhân sự' });
+    }
+
+    const { email, password, name, role, company, department, phone, status, joinDate } = req.body;
+    if (role === 'group_admin' && currentUser.role !== 'group_admin') {
+      return res.status(403).json({ success: false, message: 'Chỉ Admin được cấp vai trò quản trị hệ thống' });
+    }
+    const existingUser = await User.findOne({ email: email?.toLowerCase() });
+    if (existingUser) {
+      return res.status(400).json({ success: false, message: 'Email đã tồn tại trong hệ thống' });
+    }
+
+    const employee = await User.create({
+      email, password, name, role, company, department, phone: phone || undefined,
+      status: status || 'active',
+      joinDate: joinDate || new Date(),
+    });
+    res.status(201).json({ success: true, employee: employee.getPublicProfile() });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+});
+
+app.put('/api/hr/employees/:id', protect, async (req, res) => {
+  try {
+    const currentUser = await User.findById(req.user.id).select('role');
+    if (!currentUser || !hrManageRoles.has(currentUser.role)) {
+      return res.status(403).json({ success: false, message: 'Bạn không có quyền cập nhật nhân sự' });
+    }
+
+    const employee = await User.findById(req.params.id).select('+password');
+    if (!employee) return res.status(404).json({ success: false, message: 'Nhân sự không tồn tại' });
+
+    const { email, password, name, role, company, department, phone, status, joinDate } = req.body;
+    if ((employee.role === 'group_admin' || role === 'group_admin') && currentUser.role !== 'group_admin') {
+      return res.status(403).json({ success: false, message: 'Chỉ Admin được thay đổi tài khoản quản trị hệ thống' });
+    }
+    if (email && email.toLowerCase() !== employee.email) {
+      const duplicate = await User.findOne({ email: email.toLowerCase(), _id: { $ne: employee.id } });
+      if (duplicate) return res.status(400).json({ success: false, message: 'Email đã tồn tại trong hệ thống' });
+      employee.email = email;
+    }
+    if (name) employee.name = name;
+    if (role) employee.role = role;
+    if (company) employee.company = company;
+    if (department) employee.department = department;
+    if (phone !== undefined) employee.phone = phone || undefined;
+    if (status) employee.status = status;
+    if (joinDate) employee.joinDate = joinDate;
+    if (password) employee.password = password;
+    await employee.save();
+
+    res.json({ success: true, employee: employee.getPublicProfile() });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+});
+
+app.delete('/api/hr/employees/:id', protect, async (req, res) => {
+  try {
+    const currentUser = await User.findById(req.user.id).select('role');
+    if (!currentUser || !hrManageRoles.has(currentUser.role)) {
+      return res.status(403).json({ success: false, message: 'Bạn không có quyền xóa nhân sự' });
+    }
+    if (req.params.id === req.user.id) {
+      return res.status(400).json({ success: false, message: 'Không thể xóa tài khoản đang đăng nhập' });
+    }
+
+    const employee = await User.findById(req.params.id);
+    if (!employee) return res.status(404).json({ success: false, message: 'Nhân sự không tồn tại' });
+    if (employee.role === 'group_admin') {
+      return res.status(400).json({ success: false, message: 'Không thể xóa tài khoản quản trị hệ thống' });
+    }
+    await employee.deleteOne();
+    res.json({ success: true, message: 'Đã xóa nhân sự' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 // Create user (system admin only)
 app.post('/api/users', protect, async (req, res) => {
   try {
