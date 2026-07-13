@@ -5,6 +5,7 @@ import {
   CheckCircle2, AlertTriangle, Clock, X, Pencil, Trash2,
 } from "lucide-react";
 import { message } from "antd";
+import { useAuth } from "@/contexts/AuthContext";
 import { ConfirmDialog } from "./certifications";
 
 export const Route = createFileRoute("/projects")({
@@ -24,20 +25,11 @@ type Project = {
   id: string; code: string; name: string; customer: string; line: Line;
   pm: string; progress: number; status: Status; start: string; due: string;
   budget: number; tasksTotal: number; tasksDone: number;
+  description?: string; notes?: string;
+  createdAt?: string; updatedAt?: string;
 };
 
-const STORAGE_KEY = "wis_projects";
-
-const INITIAL: Project[] = [
-  { id: "p1", code: "WC-2025-041", name: "ISO 9001 — Minh Phú", customer: "Cty TNHH Minh Phú", line: "Line 2", pm: "Nguyễn Văn A", progress: 78, status: "on-track", start: "01/03", due: "12/07", budget: 320, tasksTotal: 42, tasksDone: 33 },
-  { id: "p2", code: "WC-2025-038", name: "ISO 22000 — Vinamilk Tiên Sơn", customer: "Vinamilk Tiên Sơn", line: "Line 2", pm: "Trần Thị B", progress: 45, status: "at-risk", start: "10/04", due: "28/06", budget: 480, tasksTotal: 56, tasksDone: 25 },
-  { id: "p3", code: "SC-2025-019", name: "Đào tạo Lead Auditor K12", customer: "Học viên công khai", line: "Line 1", pm: "Lê Minh C", progress: 92, status: "on-track", start: "15/05", due: "30/06", budget: 140, tasksTotal: 24, tasksDone: 22 },
-  { id: "p4", code: "IC-2025-007", name: "VietGAP — HTX Sơn La", customer: "HTX Nông sản Sơn La", line: "Line 3", pm: "Phạm Quốc D", progress: 22, status: "overdue", start: "01/02", due: "20/06", budget: 210, tasksTotal: 38, tasksDone: 8 },
-  { id: "p5", code: "WC-2025-035", name: "HACCP — Thủy sản Bình Định", customer: "Thủy sản Bình Định", line: "Line 2", pm: "Hoàng Thu E", progress: 64, status: "on-track", start: "20/03", due: "05/08", budget: 260, tasksTotal: 44, tasksDone: 28 },
-  { id: "p6", code: "IC-2025-021", name: "VietGAP Chăn nuôi Hòa Bình", customer: "HTX Hòa Bình", line: "Line 3", pm: "Phạm Quốc D", progress: 12, status: "planning", start: "10/06", due: "30/09", budget: 180, tasksTotal: 30, tasksDone: 4 },
-  { id: "p7", code: "WC-2024-118", name: "ISO 14001 — May Nhà Bè", customer: "Cty CP May Nhà Bè", line: "Line 2", pm: "Bùi Ngọc H", progress: 100, status: "done", start: "05/10/24", due: "20/03", budget: 300, tasksTotal: 50, tasksDone: 50 },
-  { id: "p8", code: "SC-2025-024", name: "Coaching KPI — Line 2", customer: "Nội bộ", line: "Line 1", pm: "Lê Minh C", progress: 55, status: "on-track", start: "01/05", due: "15/08", budget: 90, tasksTotal: 20, tasksDone: 11 },
-];
+const API_BASE = "http://localhost:5000";
 
 const STATUS_META: Record<Status, { label: string; cls: string; icon: typeof CheckCircle2 }> = {
   planning:   { label: "Lập kế hoạch", cls: "bg-muted text-muted-foreground border-border", icon: Clock },
@@ -48,12 +40,14 @@ const STATUS_META: Record<Status, { label: string; cls: string; icon: typeof Che
 };
 
 const emptyProject = (): Project => ({
-  id: crypto.randomUUID(), code: "", name: "", customer: "", line: "Line 2",
+  id: "", code: "", name: "", customer: "", line: "Line 2",
   pm: "", progress: 0, status: "planning", start: "", due: "", budget: 0, tasksTotal: 0, tasksDone: 0,
 });
 
 function ProjectsPage() {
-  const [items, setItems] = useState<Project[]>(INITIAL);
+  const { session } = useAuth();
+  const [items, setItems] = useState<Project[]>([]);
+  const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
   const [line, setLine] = useState<"all" | Line>("all");
   const [status, setStatus] = useState<"all" | Status>("all");
@@ -62,8 +56,32 @@ function ProjectsPage() {
   const [editing, setEditing] = useState<Project | null>(null);
   const [confirmDel, setConfirmDel] = useState<Project | null>(null);
 
-  useEffect(() => { try { const r = localStorage.getItem(STORAGE_KEY); if (r) setItems(JSON.parse(r)); } catch { /* ignore */ } }, []);
-  useEffect(() => { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(items)); } catch { /* ignore */ } }, [items]);
+  // Load projects from API
+  useEffect(() => {
+    loadProjects();
+  }, []);
+
+  const loadProjects = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(`${API_BASE}/api/projects`, {
+        headers: {
+          Authorization: `Bearer ${session?.token}`,
+        },
+      });
+      const data = await response.json();
+      if (data.success) {
+        setItems(data.projects);
+      } else {
+        message.error(data.message || 'Không thể tải dữ liệu dự án');
+      }
+    } catch (error) {
+      console.error('Error loading projects:', error);
+      message.error('Lỗi kết nối! Kiểm tra backend server (port 5000)');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filtered = useMemo(() => items.filter(p =>
     (line === "all" || p.line === line) &&
@@ -86,18 +104,70 @@ function ProjectsPage() {
     { key: "done", label: "Hoàn thành" },
   ];
 
-  function save(p: Project) {
-    const isUpdate = items.some(x => x.id === p.id);
-    setItems(prev => prev.some(x => x.id === p.id) ? prev.map(x => x.id === p.id ? p : x) : [p, ...prev]);
-    setEditing(null); setSel(p);
-    message.success(isUpdate ? `Đã cập nhật dự án ${p.code}` : `Đã tạo dự án ${p.code}`);
+  async function save(p: Project) {
+    try {
+      const isUpdate = p.id && p.id.length > 0;
+      const url = isUpdate ? `${API_BASE}/api/projects/${p.id}` : `${API_BASE}/api/projects`;
+      const method = isUpdate ? 'PUT' : 'POST';
+
+      const response = await fetch(url, {
+        method,
+        headers: {
+          Authorization: `Bearer ${session?.token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(p),
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        message.success(isUpdate ? `Đã cập nhật dự án ${p.code}` : `Đã tạo dự án ${p.code}`);
+        setEditing(null);
+        setSel(data.project);
+        await loadProjects(); // Reload list
+      } else {
+        message.error(data.message || 'Không thể lưu dự án');
+      }
+    } catch (error) {
+      console.error('Error saving project:', error);
+      message.error('Lỗi khi lưu dự án');
+    }
   }
-  function remove(id: string) { 
-    const item = items.find(x => x.id === id);
-    setItems(prev => prev.filter(x => x.id !== id)); 
-    setConfirmDel(null); 
-    setSel(null);
-    if (item) message.success(`Đã xóa dự án ${item.code}`);
+
+  async function remove(id: string) {
+    try {
+      const response = await fetch(`${API_BASE}/api/projects/${id}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${session?.token}`,
+        },
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        const item = items.find(x => x.id === id);
+        message.success(item ? `Đã xóa dự án ${item.code}` : 'Đã xóa dự án');
+        setConfirmDel(null);
+        setSel(null);
+        await loadProjects(); // Reload list
+      } else {
+        message.error(data.message || 'Không thể xóa dự án');
+      }
+    } catch (error) {
+      console.error('Error deleting project:', error);
+      message.error('Lỗi khi xóa dự án');
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Đang tải dự án...</p>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -288,7 +358,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 function ProjectForm({ project, onClose, onSave }: { project: Project; onClose: () => void; onSave: (p: Project) => void }) {
   const [f, setF] = useState<Project>(project);
-  const isNew = !project.code;
+  const isNew = !project.id || project.id.length === 0;
   return (
     <div className="fixed inset-0 bg-black/50 z-30 flex items-center justify-center p-4" onClick={onClose}>
       <div className="bg-card border border-border rounded-lg w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
@@ -311,7 +381,6 @@ function ProjectForm({ project, onClose, onSave }: { project: Project; onClose: 
             </select></Field>
             <Field label="Bắt đầu"><input value={f.start} onChange={e => setF({ ...f, start: e.target.value })} className={inp} placeholder="dd/mm" /></Field>
             <Field label="Hạn cuối"><input value={f.due} onChange={e => setF({ ...f, due: e.target.value })} className={inp} placeholder="dd/mm" /></Field>
-            <Field label={`Tiến độ ${f.progress}%`}><input type="range" min={0} max={100} value={f.progress} onChange={e => setF({ ...f, progress: +e.target.value })} className="w-full" /></Field>
             <Field label="Ngân sách (triệu)"><input type="number" value={f.budget} onChange={e => setF({ ...f, budget: +e.target.value })} className={inp} /></Field>
             <Field label="Số task"><input type="number" value={f.tasksTotal} onChange={e => setF({ ...f, tasksTotal: +e.target.value })} className={inp} /></Field>
             <Field label="Task hoàn thành"><input type="number" value={f.tasksDone} onChange={e => setF({ ...f, tasksDone: +e.target.value })} className={inp} /></Field>

@@ -9,6 +9,7 @@ import { fileURLToPath } from 'url';
 import Attendance from './models/Attendance.js';
 import User from './models/User.js';
 import chatRoutes from './routes/chatRoutes.js';
+import projectRoutes from './routes/projectRoutes.js';
 
 dotenv.config();
 
@@ -634,6 +635,10 @@ app.get('/api/attendance/all', protect, async (req, res) => {
 // ==================== CHAT ENDPOINTS ====================
 // Use chat routes with authentication middleware
 app.use('/api/chat', protect, chatRoutes);
+
+// ==================== PROJECT ENDPOINTS ====================
+// Use project routes with authentication middleware
+app.use('/api', protect, projectRoutes);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
