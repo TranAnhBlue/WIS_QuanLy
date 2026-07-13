@@ -532,10 +532,10 @@ function SetupPage() {
               <div className="text-sm space-y-1">
                 <p className="font-medium">Lưu ý quan trọng:</p>
                 <ul className="list-disc list-inside space-y-1 text-muted-foreground">
-                  <li>Dữ liệu được lưu trong <strong>MongoDB</strong> qua backend API</li>
+                  <li>Dữ liệu được lưu an toàn trên <strong>máy chủ hệ thống</strong></li>
                   <li>Xóa cache trình duyệt không làm mất dữ liệu hệ thống</li>
                   <li>Mật khẩu được backend băm bằng <strong>bcrypt</strong></li>
-                  <li>Chỉ quản trị viên hoặc CEO mới có quyền khởi tạo tài khoản</li>
+                  <li>Chỉ quản trị viên hệ thống mới có quyền khởi tạo tài khoản</li>
                 </ul>
               </div>
             </div>

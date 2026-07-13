@@ -12,6 +12,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { DEPARTMENT_INFO, type Role, type Company, type Department, type Permission } from "@/lib/permissions";
 import { useChatUnreadCount } from "@/hooks/useChatUnreadCount";
 import { apiRequest } from "@/lib/backend-api";
+import wisLogo from "@/assets/logo-wis.jpg";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -51,13 +52,18 @@ function isModuleVisible(
   userDepartment: Department,
   hasPermissionFn: (permission: Permission) => boolean
 ): boolean {
-  // CEO và Admin có thể thấy tất cả
-  if (userRole === "group_ceo" || userRole === "group_director" || userRole === "group_admin") {
+  // Quản trị viên hệ thống có thể thấy tất cả module.
+  if (userRole === "group_admin") {
     return true;
+  }
+
+  // Ban lãnh đạo quản lý nghiệp vụ/nhân sự, không quản trị tài khoản hệ thống.
+  if (userRole === "group_ceo" || userRole === "group_director") {
+    return item.id !== "users";
   }
   
   // Company CEO và Deputy có thể thấy hầu hết (trừ system settings)
-  if ((userRole === "company_ceo" || userRole === "company_deputy") && item.id !== "settings") {
+  if ((userRole === "company_ceo" || userRole === "company_deputy") && !["settings", "users"].includes(item.id)) {
     return true;
   }
   
@@ -316,13 +322,13 @@ function DashboardPage() {
 
   const liveRevenue = REVENUE.map((r) => ({ ...r, value: Math.round((dashboard?.revenue?.[r.company] || 0) / 1_000_000), delta: 0 }));
   const liveKpis = [
-    { label: "Người dùng", value: dashboard?.users ?? 0, sub: "Tài khoản đang quản lý", icon: Users, tone: "info" },
-    { label: "Chấm công hôm nay", value: dashboard?.attendanceToday ?? 0, sub: "Bản ghi hôm nay", icon: CheckCircle2, tone: "success" },
-    { label: "Hợp đồng", value: dashboard?.resources?.contracts ?? 0, sub: "Dữ liệu MongoDB", icon: FileSignature, tone: "primary" },
-    { label: "Dự án", value: dashboard?.projects ?? 0, sub: "Dự án đang quản lý", icon: FolderKanban, tone: "info" },
-    { label: "Báo giá", value: dashboard?.resources?.quotations ?? 0, sub: "Dữ liệu MongoDB", icon: FileText, tone: "warning" },
-    { label: "Nhân sự", value: dashboard?.resources?.employees ?? 0, sub: "Hồ sơ nhân sự", icon: UserCog, tone: "destructive" },
-  ];
+    { label: "Người dùng", value: dashboard?.users ?? 0, sub: "Tài khoản đang quản lý", icon: Users, tone: "info", to: "/users", adminOnly: true },
+    { label: "Chấm công hôm nay", value: dashboard?.attendanceToday ?? 0, sub: "Bản ghi hôm nay", icon: CheckCircle2, tone: "success", to: "/attendance-management" },
+    { label: "Hợp đồng", value: dashboard?.resources?.contracts ?? 0, sub: "Hợp đồng đang quản lý", icon: FileSignature, tone: "primary", to: "/contracts" },
+    { label: "Dự án", value: dashboard?.projects ?? 0, sub: "Dự án đang quản lý", icon: FolderKanban, tone: "info", to: "/projects" },
+    { label: "Báo giá", value: dashboard?.resources?.quotations ?? 0, sub: "Báo giá đang quản lý", icon: FileText, tone: "warning", to: "/quotations" },
+    { label: "Nhân sự", value: dashboard?.resources?.employees ?? 0, sub: "Hồ sơ nhân sự", icon: UserCog, tone: "destructive", to: "/hr" },
+  ].filter((k) => !k.adminOnly || user.role === "group_admin");
   const liveActivities = dashboard?.activities || [];
 
   // Redirect to login if not authenticated
@@ -383,8 +389,8 @@ function DashboardPage() {
         className={`${collapsed ? "w-[72px]" : "w-[260px]"} shrink-0 border-r border-sidebar-border bg-sidebar transition-all duration-300 flex flex-col sticky top-0 h-screen`}
       >
         <div className="flex items-center gap-3 px-4 h-16 border-b border-sidebar-border">
-          <div className="size-9 shrink-0 grid place-items-center rounded-md bg-primary text-primary-foreground font-display font-bold text-lg">
-            W
+          <div className="size-10 shrink-0 overflow-hidden rounded-full bg-white p-1 ring-1 ring-sidebar-border shadow-sm">
+            <img src={wisLogo} alt="WIS" className="h-full w-full object-contain" />
           </div>
           {!collapsed && (
             <div className="min-w-0 flex-1">
@@ -695,10 +701,12 @@ function DashboardPage() {
                 destructive: "text-destructive",
               }[k.tone];
               return (
-                <div
+                <Link
+                  to={k.to}
                   key={k.label}
-                  className="kpi-tile kpi-tile-hover p-4 animate-count-up"
+                  className="kpi-tile kpi-tile-hover block p-4 animate-count-up focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                   style={{ animationDelay: `${240 + idx * 50}ms` }}
+                  aria-label={`Mở module ${k.label}`}
                 >
                   <div className="flex items-center justify-between mb-2">
                     <Icon className={`size-4 ${toneClass}`} />
@@ -707,7 +715,7 @@ function DashboardPage() {
                   <div className="font-display text-2xl font-semibold tabular-nums">{k.value}</div>
                   <div className="text-[11px] text-foreground/80 font-medium mt-1">{k.label}</div>
                   <div className="text-[10px] text-muted-foreground mt-0.5">{k.sub}</div>
-                </div>
+                </Link>
               );
             })}
           </section>
@@ -800,7 +808,7 @@ function DashboardPage() {
 
                 <div className="flex-1 p-4 space-y-3 text-sm">
                   <div className="text-muted-foreground text-xs">Câu hỏi gợi ý hôm nay:</div>
-                  {(user.role === "group_ceo" || user.role === "group_director") ? [
+                  {((user.role === "group_ceo" || user.role === "group_director") ? [
                     "Công ty nào doanh thu thấp nhất tháng này?",
                     "Có bao nhiêu dự án ISO đang trễ?",
                     "Khách hàng nào sắp tái chứng nhận trong 30 ngày?",
@@ -815,7 +823,7 @@ function DashboardPage() {
                     "Lịch họp của tôi tuần này như thế nào?",
                     "Có email nào cần phản hồi khẩn cấp?",
                     "Tiến độ dự án của team như thế nào?",
-                  ].map((q) => (
+                  ]).map((q) => (
                     <button
                       key={q}
                       className="w-full text-left text-xs px-3 py-2.5 rounded-md bg-surface border border-border hover:border-primary/40 hover:bg-surface-2 transition group flex items-start gap-2"

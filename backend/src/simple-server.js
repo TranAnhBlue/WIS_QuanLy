@@ -195,7 +195,7 @@ app.put('/api/auth/change-password', protect, async (req, res) => {
 
 // ==================== USER MANAGEMENT ENDPOINTS ====================
 
-// Get all users (Admin and CEO only)
+// Get all users (system admin only)
 app.get('/api/users', protect, async (req, res) => {
   try {
     const currentUser = await User.findById(req.user.id);
@@ -206,11 +206,7 @@ app.get('/api/users', protect, async (req, res) => {
 
     let query = {};
     
-    // CEO sees all users except admin
-    if (currentUser.role === 'group_ceo') {
-      query = { role: { $ne: 'group_admin' } };
-    } else if (currentUser.role !== 'group_admin') {
-      // Other roles cannot access this endpoint
+    if (currentUser.role !== 'group_admin') {
       return res.status(403).json({ 
         success: false, 
         message: 'Bạn không có quyền truy cập' 
@@ -247,12 +243,12 @@ app.get('/api/users/:id', protect, async (req, res) => {
   }
 });
 
-// Create user (Admin and CEO only)
+// Create user (system admin only)
 app.post('/api/users', protect, async (req, res) => {
   try {
     const currentUser = await User.findById(req.user.id);
     
-    if (!['group_admin', 'group_ceo'].includes(currentUser.role)) {
+    if (currentUser.role !== 'group_admin') {
       return res.status(403).json({ 
         success: false, 
         message: 'Bạn không có quyền tạo user' 
@@ -290,12 +286,12 @@ app.post('/api/users', protect, async (req, res) => {
   }
 });
 
-// Update user (Admin and CEO only)
+// Update user (system admin only)
 app.put('/api/users/:id', protect, async (req, res) => {
   try {
     const currentUser = await User.findById(req.user.id);
     
-    if (!['group_admin', 'group_ceo'].includes(currentUser.role)) {
+    if (currentUser.role !== 'group_admin') {
       return res.status(403).json({ 
         success: false, 
         message: 'Bạn không có quyền cập nhật user' 
@@ -324,12 +320,12 @@ app.put('/api/users/:id', protect, async (req, res) => {
   }
 });
 
-// Delete user (Admin and CEO only)
+// Delete user (system admin only)
 app.delete('/api/users/:id', protect, async (req, res) => {
   try {
     const currentUser = await User.findById(req.user.id);
     
-    if (!['group_admin', 'group_ceo'].includes(currentUser.role)) {
+    if (currentUser.role !== 'group_admin') {
       return res.status(403).json({ 
         success: false, 
         message: 'Bạn không có quyền xóa user' 

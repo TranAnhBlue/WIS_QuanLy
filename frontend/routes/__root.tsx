@@ -12,6 +12,7 @@ import { useEffect, type ReactNode } from "react";
 import appCss from "../style.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { AuthProvider } from "../contexts/AuthContext";
+import wisFavicon from "../assets/favicon-wis-rounded.png";
 
 import { FileQuestion, Home, ArrowLeft } from "lucide-react";
 
@@ -147,6 +148,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/654b352c-ed5c-4188-b1f1-7c6219ee3680/id-preview-606ee506--cee1204b-814c-4f6a-aa3e-bd6bd3398d55.lovable.app-1782788379935.png" },
     ],
     links: [
+      {
+        rel: "icon",
+        type: "image/png",
+        href: wisFavicon,
+      },
       {
         rel: "stylesheet",
         href: appCss,

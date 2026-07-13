@@ -9,6 +9,7 @@ import type { Company, Department } from "@/lib/permissions";
 import { COMPANY_INFO, DEPARTMENT_INFO } from "@/lib/permissions";
 import { message } from "antd";
 import { API_BASE } from "@/lib/backend-api";
+import wisLogo from "@/assets/logo-wis.jpg";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -126,8 +127,8 @@ function RegisterPage() {
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-background via-background to-muted p-4">
       <Card className="w-full max-w-lg">
         <CardHeader className="space-y-1">
-          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground">
-            <UserPlus className="h-6 w-6" />
+          <div className="mx-auto mb-4 flex size-24 items-center justify-center overflow-hidden rounded-full border border-border bg-white p-2 shadow-sm">
+            <img src={wisLogo} alt="WIS" className="h-full w-full object-contain" />
           </div>
           <CardTitle className="text-2xl text-center">Đăng ký tài khoản</CardTitle>
           <CardDescription className="text-center">

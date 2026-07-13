@@ -484,8 +484,6 @@ export const PERMISSIONS: Record<Role, Permission[]> = {
   // Level 95 - Group Director
   group_director: [
     "edit_own_profile",
-    "manage_users",
-    "view_users",
     "manage_company",
     "view_company_data",
     "manage_department",
@@ -526,8 +524,6 @@ export const PERMISSIONS: Record<Role, Permission[]> = {
   // Level 100 - Group CEO
   group_ceo: [
     "edit_own_profile",
-    "manage_users",
-    "view_users",
     "manage_company",
     "view_company_data",
     "manage_department",

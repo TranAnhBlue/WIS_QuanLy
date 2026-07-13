@@ -6,6 +6,7 @@ import { z } from "zod";
 import { Eye, EyeOff, LogIn } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { message } from "antd";
+import wisLogo from "@/assets/logo-wis.jpg";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -70,8 +71,8 @@ function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-background via-background to-muted p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
-          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground">
-            <LogIn className="h-6 w-6" />
+          <div className="mx-auto mb-4 flex size-24 items-center justify-center overflow-hidden rounded-full border border-border bg-white p-2 shadow-sm">
+            <img src={wisLogo} alt="WIS" className="h-full w-full object-contain" />
           </div>
           <CardTitle className="text-2xl text-center">Đăng nhập WIS</CardTitle>
           <CardDescription className="text-center">
