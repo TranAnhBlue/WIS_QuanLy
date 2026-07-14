@@ -9,6 +9,9 @@ import {
   FileCheck2,
   FileText,
   FolderKanban,
+  FlaskConical,
+  Leaf,
+  Scale,
   UserRound,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -24,6 +27,7 @@ export const Route = createFileRoute("/details/$module/$id")({
       quotations: "Chi tiết báo giá", certifications: "Chi tiết chứng chỉ", hr: "Chi tiết nhân sự",
       users: "Chi tiết người dùng", reward: "Chi tiết khen thưởng", attendance: "Chi tiết chấm công",
       "attendance-management": "Chi tiết chấm công",
+      science: "Chi tiết nhiệm vụ KH", legal: "Chi tiết bảo hộ & pháp lý", vietgap: "Chi tiết VietGAP",
     };
     return { meta: [{ title: `${labels[params.module] || "Chi tiết"} - WIS` }] };
   },
@@ -136,6 +140,43 @@ const CONFIG: Record<string, ModuleConfig> = {
       { key: "workingHours", label: "Số giờ làm" }, { key: "status", label: "Trạng thái", kind: "status" },
     ],
   },
+  science: {
+    label: "Nhiệm vụ khoa học",
+    back: "/science",
+    icon: FlaskConical,
+    fields: [
+      { key: "code", label: "Mã nhiệm vụ" }, { key: "status", label: "Trạng thái", kind: "status" },
+      { key: "topic", label: "Lĩnh vực nghiên cứu" }, { key: "manager", label: "Chủ nhiệm nhiệm vụ" },
+      { key: "leadAgency", label: "Cơ quan chủ trì" }, { key: "budget", label: "Kinh phí", kind: "money" },
+      { key: "startDate", label: "Ngày bắt đầu", kind: "date" }, { key: "endDate", label: "Ngày kết thúc", kind: "date" },
+      { key: "progress", label: "Tiến độ" },
+    ],
+  },
+  legal: {
+    label: "Bảo hộ & Pháp lý",
+    back: "/legal",
+    icon: Scale,
+    fields: [
+      { key: "code", label: "Mã hồ sơ" }, { key: "status", label: "Trạng thái", kind: "status" },
+      { key: "category", label: "Loại hồ sơ", kind: "status" }, { key: "owner", label: "Người phụ trách" },
+      { key: "subject", label: "Chủ sở hữu/Đơn vị liên quan" }, { key: "authority", label: "Cơ quan tiếp nhận" },
+      { key: "referenceNumber", label: "Số đơn/Số văn bằng" }, { key: "filingDate", label: "Ngày nộp", kind: "date" },
+      { key: "deadline", label: "Hạn xử lý", kind: "date" },
+    ],
+  },
+  vietgap: {
+    label: "VietGAP",
+    back: "/vietgap",
+    icon: Leaf,
+    fields: [
+      { key: "code", label: "Mã hồ sơ" }, { key: "status", label: "Trạng thái", kind: "status" },
+      { key: "customer", label: "Khách hàng/HTX" }, { key: "standard", label: "Lĩnh vực", kind: "status" },
+      { key: "farmName", label: "Cơ sở/Vùng sản xuất" }, { key: "province", label: "Tỉnh/Thành phố" },
+      { key: "owner", label: "Chuyên viên phụ trách" }, { key: "area", label: "Diện tích (ha)" },
+      { key: "startDate", label: "Ngày bắt đầu", kind: "date" }, { key: "auditDate", label: "Ngày đánh giá", kind: "date" },
+      { key: "expiryDate", label: "Ngày hết hiệu lực", kind: "date" }, { key: "certificateNumber", label: "Số chứng nhận" },
+    ],
+  },
 };
 
 function userFields(): Field[] {
@@ -165,6 +206,10 @@ function statusLabel(value: string) {
     quotation: "Báo giá", hr: "Nhân sự", chat: "Chat nội bộ", training: "Đào tạo",
     all: "Toàn công ty", company: "Theo Line", department: "Theo phòng ban", users: "Theo người nhận",
     true: "Đã đọc", false: "Chưa đọc",
+    cultivation: "VietGAP trồng trọt", livestock: "VietGAP chăn nuôi", aquaculture: "VietGAP thủy sản", organic: "Hữu cơ",
+    trademark: "Nhãn hiệu", copyright: "Quyền tác giả", patent: "Sáng chế/Giải pháp hữu ích", license: "Giấy phép",
+    legal: "Tư vấn pháp lý", "contract-review": "Rà soát hợp đồng", submitted: "Đã nộp", reviewing: "Đang thẩm định",
+    granted: "Đã cấp văn bằng", suspended: "Tạm dừng", completed: "Hoàn thành",
   };
   return labels[value] || value;
 }
@@ -191,8 +236,12 @@ function formatValue(module: string, field: Field, value: unknown) {
 }
 
 async function fetchDetail(module: string, id: string) {
-  if (["contracts", "quotations", "certifications"].includes(module)) {
-    return apiRequest<{ item: DetailData }>(`/api/business/${module}/${id}`).then((result) => result.item);
+  const businessResources: Record<string, string> = {
+    contracts: "contracts", quotations: "quotations", certifications: "certifications",
+    science: "science-missions", legal: "legal-records", vietgap: "vietgap-records",
+  };
+  if (businessResources[module]) {
+    return apiRequest<{ item: DetailData }>(`/api/business/${businessResources[module]}/${id}`).then((result) => result.item);
   }
   if (module === "projects") return apiRequest<{ project: DetailData }>(`/api/projects/${id}`).then((result) => result.project);
   if (module === "notifications") {

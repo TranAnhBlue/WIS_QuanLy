@@ -183,7 +183,7 @@ const MODULES: ModuleGroup[] = [
         icon: Scale,
         requiresPermission: "view_legal",
         companies: ["SCT_VIET", "ICT_VIET"], // SCT và ICT có pháp lý
-        departments: ["SCT_LEGAL", "ICT_ADMIN"] // Bình ở SCT, team legal ở ICT
+        departments: ["SCT_LEGAL", "ICT_LEGAL", "ICT_ADMIN"] // Phòng pháp lý SCT/ICT và hành chính ICT
       },
       { 
         id: "vietgap", 
@@ -269,6 +269,30 @@ const COMPANIES = [
   { id: "ict", label: "Line 3", color: "oklch(0.65 0.2 310)" },
 ];
 
+function getVietnamClock(now = new Date()) {
+  const timeZone = "Asia/Ho_Chi_Minh";
+  const dateText = new Intl.DateTimeFormat("vi-VN", {
+    weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone,
+  }).format(now);
+  const timeText = new Intl.DateTimeFormat("vi-VN", {
+    hour: "2-digit", minute: "2-digit", hour12: false, timeZone,
+  }).format(now);
+  const hour = Number(new Intl.DateTimeFormat("en-GB", {
+    hour: "2-digit", hour12: false, timeZone,
+  }).format(now));
+  const greeting = hour >= 5 && hour < 11
+    ? "Chào buổi sáng"
+    : hour >= 11 && hour < 14
+      ? "Chào buổi trưa"
+      : hour >= 14 && hour < 18
+        ? "Chào buổi chiều"
+        : "Chào buổi tối";
+  return {
+    dateTime: `${dateText.charAt(0).toUpperCase()}${dateText.slice(1)} • ${timeText}`,
+    greeting,
+  };
+}
+
 const REVENUE = [
   { company: "Line 1", value: 1965, delta: 8.1, trend: "up", desc: "Tư vấn & đào tạo" },
   { company: "Line 2", value: 4280, delta: 12.4, trend: "up", desc: "Phạm vi tiêu chuẩn quy chuẩn ISO" },
@@ -309,6 +333,14 @@ function DashboardPage() {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [dashboard, setDashboard] = useState<{ users: number; attendanceToday: number; projects: number; resources: Record<string, number>; revenue: Record<string, number>; employeesByLine: Record<string, number>; projectRows: typeof PROJECTS; activities: typeof ACTIVITY } | null>(null);
+  const [vietnamClock, setVietnamClock] = useState<{ dateTime: string; greeting: string } | null>(null);
+
+  useEffect(() => {
+    const updateClock = () => setVietnamClock(getVietnamClock());
+    updateClock();
+    const timer = window.setInterval(updateClock, 30_000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     if (isAuthenticated) apiRequest<{ stats: typeof dashboard }>("/api/dashboard")
@@ -465,6 +497,9 @@ function DashboardPage() {
                       projects: "/projects", 
                       quotations: "/quotations", 
                       contracts: "/contracts",
+                      science: "/science",
+                      legal: "/legal",
+                      vietgap: "/vietgap",
                       users: "/users",
                       attendance: "/attendance",
                       "attendance-management": "/attendance-management",
@@ -628,10 +663,10 @@ function DashboardPage() {
           <div className="flex items-end justify-between gap-4 flex-wrap animate-count-up">
             <div>
               <div className="text-xs uppercase tracking-wider text-muted-foreground font-medium mb-1">
-                Thứ sáu, 26 tháng 6, 2026 • 09:47
+                {vietnamClock?.dateTime || "Đang cập nhật thời gian..."}
               </div>
               <h1 className="font-display text-3xl font-semibold tracking-tight">
-                Chào buổi sáng, <span className="text-primary">{user.name.split(" ")[user.name.split(" ").length - 1]}</span>
+                {vietnamClock?.greeting || "Xin chào"}, <span className="text-primary">{user.name}</span>
               </h1>
               <p className="text-sm text-muted-foreground mt-1">
                 Dữ liệu hôm nay: <span className="text-success font-medium">{dashboard?.attendanceToday ?? 0}</span> lượt chấm công • <span className="text-warning font-medium">{dashboard?.projects ?? 0}</span> dự án

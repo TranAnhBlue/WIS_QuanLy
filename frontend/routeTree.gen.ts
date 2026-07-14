@@ -9,9 +9,11 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as VietgapRouteImport } from './routes/vietgap'
 import { Route as UsersRouteImport } from './routes/users'
 import { Route as TrainingRouteImport } from './routes/training'
 import { Route as SetupRouteImport } from './routes/setup'
+import { Route as ScienceRouteImport } from './routes/science'
 import { Route as RewardRouteImport } from './routes/reward'
 import { Route as RegisterRouteImport } from './routes/register'
 import { Route as QuotationsRouteImport } from './routes/quotations'
@@ -19,6 +21,7 @@ import { Route as ProjectsRouteImport } from './routes/projects'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as NotificationsRouteImport } from './routes/notifications'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as LegalRouteImport } from './routes/legal'
 import { Route as HrRouteImport } from './routes/hr'
 import { Route as ContractsRouteImport } from './routes/contracts'
 import { Route as ChatRouteImport } from './routes/chat'
@@ -31,6 +34,11 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as TrainingCourseIdRouteImport } from './routes/training.$courseId'
 import { Route as DetailsModuleIdRouteImport } from './routes/details.$module.$id'
 
+const VietgapRoute = VietgapRouteImport.update({
+  id: '/vietgap',
+  path: '/vietgap',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const UsersRoute = UsersRouteImport.update({
   id: '/users',
   path: '/users',
@@ -44,6 +52,11 @@ const TrainingRoute = TrainingRouteImport.update({
 const SetupRoute = SetupRouteImport.update({
   id: '/setup',
   path: '/setup',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ScienceRoute = ScienceRouteImport.update({
+  id: '/science',
+  path: '/science',
   getParentRoute: () => rootRouteImport,
 } as any)
 const RewardRoute = RewardRouteImport.update({
@@ -79,6 +92,11 @@ const NotificationsRoute = NotificationsRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LegalRoute = LegalRouteImport.update({
+  id: '/legal',
+  path: '/legal',
   getParentRoute: () => rootRouteImport,
 } as any)
 const HrRoute = HrRouteImport.update({
@@ -147,6 +165,7 @@ export interface FileRoutesByFullPath {
   '/chat': typeof ChatRoute
   '/contracts': typeof ContractsRoute
   '/hr': typeof HrRoute
+  '/legal': typeof LegalRoute
   '/login': typeof LoginRoute
   '/notifications': typeof NotificationsRoute
   '/profile': typeof ProfileRoute
@@ -154,9 +173,11 @@ export interface FileRoutesByFullPath {
   '/quotations': typeof QuotationsRoute
   '/register': typeof RegisterRoute
   '/reward': typeof RewardRoute
+  '/science': typeof ScienceRoute
   '/setup': typeof SetupRoute
   '/training': typeof TrainingRouteWithChildren
   '/users': typeof UsersRoute
+  '/vietgap': typeof VietgapRoute
   '/training/$courseId': typeof TrainingCourseIdRoute
   '/details/$module/$id': typeof DetailsModuleIdRoute
 }
@@ -170,6 +191,7 @@ export interface FileRoutesByTo {
   '/chat': typeof ChatRoute
   '/contracts': typeof ContractsRoute
   '/hr': typeof HrRoute
+  '/legal': typeof LegalRoute
   '/login': typeof LoginRoute
   '/notifications': typeof NotificationsRoute
   '/profile': typeof ProfileRoute
@@ -177,9 +199,11 @@ export interface FileRoutesByTo {
   '/quotations': typeof QuotationsRoute
   '/register': typeof RegisterRoute
   '/reward': typeof RewardRoute
+  '/science': typeof ScienceRoute
   '/setup': typeof SetupRoute
   '/training': typeof TrainingRouteWithChildren
   '/users': typeof UsersRoute
+  '/vietgap': typeof VietgapRoute
   '/training/$courseId': typeof TrainingCourseIdRoute
   '/details/$module/$id': typeof DetailsModuleIdRoute
 }
@@ -194,6 +218,7 @@ export interface FileRoutesById {
   '/chat': typeof ChatRoute
   '/contracts': typeof ContractsRoute
   '/hr': typeof HrRoute
+  '/legal': typeof LegalRoute
   '/login': typeof LoginRoute
   '/notifications': typeof NotificationsRoute
   '/profile': typeof ProfileRoute
@@ -201,9 +226,11 @@ export interface FileRoutesById {
   '/quotations': typeof QuotationsRoute
   '/register': typeof RegisterRoute
   '/reward': typeof RewardRoute
+  '/science': typeof ScienceRoute
   '/setup': typeof SetupRoute
   '/training': typeof TrainingRouteWithChildren
   '/users': typeof UsersRoute
+  '/vietgap': typeof VietgapRoute
   '/training/$courseId': typeof TrainingCourseIdRoute
   '/details/$module/$id': typeof DetailsModuleIdRoute
 }
@@ -219,6 +246,7 @@ export interface FileRouteTypes {
     | '/chat'
     | '/contracts'
     | '/hr'
+    | '/legal'
     | '/login'
     | '/notifications'
     | '/profile'
@@ -226,9 +254,11 @@ export interface FileRouteTypes {
     | '/quotations'
     | '/register'
     | '/reward'
+    | '/science'
     | '/setup'
     | '/training'
     | '/users'
+    | '/vietgap'
     | '/training/$courseId'
     | '/details/$module/$id'
   fileRoutesByTo: FileRoutesByTo
@@ -242,6 +272,7 @@ export interface FileRouteTypes {
     | '/chat'
     | '/contracts'
     | '/hr'
+    | '/legal'
     | '/login'
     | '/notifications'
     | '/profile'
@@ -249,9 +280,11 @@ export interface FileRouteTypes {
     | '/quotations'
     | '/register'
     | '/reward'
+    | '/science'
     | '/setup'
     | '/training'
     | '/users'
+    | '/vietgap'
     | '/training/$courseId'
     | '/details/$module/$id'
   id:
@@ -265,6 +298,7 @@ export interface FileRouteTypes {
     | '/chat'
     | '/contracts'
     | '/hr'
+    | '/legal'
     | '/login'
     | '/notifications'
     | '/profile'
@@ -272,9 +306,11 @@ export interface FileRouteTypes {
     | '/quotations'
     | '/register'
     | '/reward'
+    | '/science'
     | '/setup'
     | '/training'
     | '/users'
+    | '/vietgap'
     | '/training/$courseId'
     | '/details/$module/$id'
   fileRoutesById: FileRoutesById
@@ -289,6 +325,7 @@ export interface RootRouteChildren {
   ChatRoute: typeof ChatRoute
   ContractsRoute: typeof ContractsRoute
   HrRoute: typeof HrRoute
+  LegalRoute: typeof LegalRoute
   LoginRoute: typeof LoginRoute
   NotificationsRoute: typeof NotificationsRoute
   ProfileRoute: typeof ProfileRoute
@@ -296,14 +333,23 @@ export interface RootRouteChildren {
   QuotationsRoute: typeof QuotationsRoute
   RegisterRoute: typeof RegisterRoute
   RewardRoute: typeof RewardRoute
+  ScienceRoute: typeof ScienceRoute
   SetupRoute: typeof SetupRoute
   TrainingRoute: typeof TrainingRouteWithChildren
   UsersRoute: typeof UsersRoute
+  VietgapRoute: typeof VietgapRoute
   DetailsModuleIdRoute: typeof DetailsModuleIdRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/vietgap': {
+      id: '/vietgap'
+      path: '/vietgap'
+      fullPath: '/vietgap'
+      preLoaderRoute: typeof VietgapRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/users': {
       id: '/users'
       path: '/users'
@@ -323,6 +369,13 @@ declare module '@tanstack/react-router' {
       path: '/setup'
       fullPath: '/setup'
       preLoaderRoute: typeof SetupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/science': {
+      id: '/science'
+      path: '/science'
+      fullPath: '/science'
+      preLoaderRoute: typeof ScienceRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/reward': {
@@ -372,6 +425,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/legal': {
+      id: '/legal'
+      path: '/legal'
+      fullPath: '/legal'
+      preLoaderRoute: typeof LegalRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/hr': {
@@ -476,6 +536,7 @@ const rootRouteChildren: RootRouteChildren = {
   ChatRoute: ChatRoute,
   ContractsRoute: ContractsRoute,
   HrRoute: HrRoute,
+  LegalRoute: LegalRoute,
   LoginRoute: LoginRoute,
   NotificationsRoute: NotificationsRoute,
   ProfileRoute: ProfileRoute,
@@ -483,9 +544,11 @@ const rootRouteChildren: RootRouteChildren = {
   QuotationsRoute: QuotationsRoute,
   RegisterRoute: RegisterRoute,
   RewardRoute: RewardRoute,
+  ScienceRoute: ScienceRoute,
   SetupRoute: SetupRoute,
   TrainingRoute: TrainingRouteWithChildren,
   UsersRoute: UsersRoute,
+  VietgapRoute: VietgapRoute,
   DetailsModuleIdRoute: DetailsModuleIdRoute,
 }
 export const routeTree = rootRouteImport
