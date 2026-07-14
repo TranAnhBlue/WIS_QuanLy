@@ -2,6 +2,33 @@ import Conversation from '../models/Conversation.js';
 import Message from '../models/Message.js';
 import User from '../models/User.js';
 
+// Return the active company directory for direct and group conversations.
+// This endpoint is available to every authenticated employee, unlike the
+// system-admin-only /api/users management endpoint.
+export const getChatUsers = async (req, res) => {
+  try {
+    const search = req.query.search?.trim();
+    const query = { status: 'active', _id: { $ne: req.user.id } };
+    if (search) {
+      query.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { email: { $regex: search, $options: 'i' } },
+        { department: { $regex: search, $options: 'i' } },
+      ];
+    }
+    const users = await User.find(query)
+      .select('name email avatar role company department status')
+      .sort({ name: 1 })
+      .lean();
+    res.json({
+      success: true,
+      users: users.map(({ _id, ...user }) => ({ ...user, _id: _id.toString(), id: _id.toString() })),
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 // Get all conversations for current user
 export const getConversations = async (req, res) => {
   try {

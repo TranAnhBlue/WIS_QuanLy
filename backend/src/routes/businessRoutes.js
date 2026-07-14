@@ -63,6 +63,25 @@ router.get('/business/:resource', valid, async (req, res, next) => {
   } catch (error) { next(error); }
 });
 
+router.get('/business/:resource/:id', valid, async (req, res, next) => {
+  try {
+    const record = await BusinessRecord.findOne({ _id: req.params.id, resource: req.params.resource }).lean();
+    if (!record) return res.status(404).json({ success: false, message: 'Dữ liệu không tồn tại' });
+    const { _id, data, createdAt, updatedAt } = record;
+    res.json({ success: true, item: { ...data, id: _id.toString(), createdAt, updatedAt } });
+  } catch (error) { next(error); }
+});
+
+router.get('/rewards/members/:memberId', async (req, res, next) => {
+  try {
+    const record = await BusinessRecord.findOne({ resource: 'rewards', 'data.members.id': req.params.memberId }).lean();
+    const member = record?.data?.members?.find(item => item.id === req.params.memberId);
+    if (!member) return res.status(404).json({ success: false, message: 'Nhân sự khen thưởng không tồn tại' });
+    const activities = (record.data.activities || []).filter(item => item.memberId === member.id || item.who === member.name);
+    res.json({ success: true, member, activities, updatedAt: record.updatedAt });
+  } catch (error) { next(error); }
+});
+
 router.post('/business/:resource', valid, async (req, res, next) => {
   try {
     const { id, _id, createdAt, updatedAt, ...data } = req.body;

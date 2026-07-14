@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { 
   Clock, ArrowLeft, Calendar, Download, Filter, Users, 
@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { AppDatePicker } from "@/components/ui/app-date-picker";
 
 export const Route = createFileRoute("/attendance-management")({
+  head: () => ({ meta: [{ title: "Quản lý chấm công - WIS" }] }),
   component: AttendanceManagementPage,
 });
 
@@ -325,7 +326,7 @@ function AttendanceManagementPage() {
                       .map((record, index) => (
                         <tr key={record._id || index} className="border-b hover:bg-surface/50">
                           <td className="p-3">
-                            <div className="font-medium">{record.userId.name}</div>
+                            <Link to="/details/$module/$id" params={{ module: "attendance-management", id: `${record.userId._id}__${selectedDate}` }} className="font-medium hover:text-primary hover:underline">{record.userId.name}</Link>
                             <div className="text-sm text-muted-foreground">{record.userId.email}</div>
                           </td>
                           <td className="p-3 text-sm">{record.userId.role}</td>

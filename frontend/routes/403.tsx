@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 
 export const Route = createFileRoute("/403")({
+  head: () => ({ meta: [{ title: "Không có quyền - WIS" }] }),
   component: ForbiddenPage,
 });
 

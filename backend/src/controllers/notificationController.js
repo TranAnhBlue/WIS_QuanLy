@@ -93,6 +93,22 @@ export async function unreadCount(req, res) {
   }
 }
 
+export async function getNotification(req, res) {
+  try {
+    const user = await currentUser(req);
+    if (!user) return res.status(401).json({ success: false, message: "Người dùng không tồn tại" });
+    const notification = await Notification.findOne({
+      $and: [{ _id: req.params.id }, { isDeleted: false }, { $or: visibleTo(user) }],
+    }).populate("createdBy", "name email");
+    if (!notification) {
+      return res.status(404).json({ success: false, message: "Thông báo không tồn tại hoặc bạn không có quyền xem" });
+    }
+    res.json({ success: true, notification: publicNotification(notification, user) });
+  } catch (error) {
+    res.status(error.name === "CastError" ? 400 : 500).json({ success: false, message: error.message });
+  }
+}
+
 export async function createNotification(req, res) {
   try {
     const user = await currentUser(req);

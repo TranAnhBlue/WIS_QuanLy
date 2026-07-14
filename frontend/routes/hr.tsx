@@ -15,7 +15,7 @@ import { AppDatePicker, isValidDateValue, parseDateValue } from "@/components/ui
 export const Route = createFileRoute("/hr")({
   head: () => ({
     meta: [
-      { title: "Nhân sự — WIS" },
+      { title: "Nhân sự - WIS" },
       { name: "description", content: "Quản lý nhân sự toàn tập đoàn Line 2, Line 1, Line 3." },
     ],
   }),
@@ -312,7 +312,7 @@ function HRPage() {
             </thead>
             <tbody className="divide-y divide-border/50">
               {filtered.map(e => (
-                <tr key={e.id} className="cursor-pointer transition-colors hover:bg-muted/30" onClick={() => setSelected(e)}>
+                <tr key={e.id} className="cursor-pointer transition-colors hover:bg-muted/30" onClick={() => { window.location.href = `/details/hr/${e.id}`; }}>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
                       <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-amber-500/20 to-sky-500/20 text-xs font-semibold ring-1 ring-border/60">
@@ -346,9 +346,9 @@ function HRPage() {
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>
                       )}
-                      <button onClick={() => setSelected(e)} title="Chi tiết" className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground">
+                      <Link to="/details/$module/$id" params={{ module: "hr", id: e.id }} onClick={(event) => event.stopPropagation()} title="Chi tiết" className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground">
                         <MoreHorizontal className="h-4 w-4" />
-                      </button>
+                      </Link>
                     </div>
                   </td>
                 </tr>

@@ -817,6 +817,34 @@ app.get("/api/attendance/all", protect, async (req, res) => {
   }
 });
 
+app.get("/api/attendance/detail/:userId", protect, async (req, res) => {
+  try {
+    const date = req.query.date;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date || "")) {
+      return res.status(400).json({ success: false, message: "Ngày chấm công không hợp lệ" });
+    }
+    const user = await User.findById(req.params.userId).select("name email role company department");
+    if (!user) return res.status(404).json({ success: false, message: "Nhân sự không tồn tại" });
+    const start = new Date(`${date}T00:00:00+07:00`);
+    const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
+    const record = await Attendance.findOne({ userId: user._id, checkInTime: { $gte: start, $lt: end } }).lean();
+    res.json({
+      success: true,
+      attendance: {
+        id: record?._id?.toString() || `${user.id}-${date}`,
+        userId: { id: user.id, name: user.name, email: user.email, role: user.role, company: user.company, department: user.department },
+        date,
+        checkInTime: record?.checkInTime || null,
+        checkOutTime: record?.checkOutTime || null,
+        status: record?.status || "absent",
+        workingHours: record?.workingHours || 0,
+      },
+    });
+  } catch (error) {
+    res.status(error.name === "CastError" ? 400 : 500).json({ success: false, message: error.message });
+  }
+});
+
 // ==================== CHAT ENDPOINTS ====================
 // Use chat routes with authentication middleware
 app.use("/api/chat", protect, chatRoutes);

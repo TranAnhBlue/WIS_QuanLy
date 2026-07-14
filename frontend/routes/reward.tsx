@@ -11,7 +11,7 @@ import { businessApi } from "@/lib/backend-api";
 export const Route = createFileRoute("/reward")({
   head: () => ({
     meta: [
-      { title: "Tích thưởng — WIS" },
+      { title: "Khen thưởng - WIS" },
       { name: "description", content: "Hệ thống tích điểm & phần thưởng cho nhân sự Line 1, Line 2, Line 3." },
     ],
   }),
@@ -267,7 +267,7 @@ function RewardsPage() {
                             {m.name.split(" ").slice(-2).map((w) => w[0]).join("")}
                           </div>
                           <div>
-                            <div className="font-medium leading-tight">{m.name}</div>
+                            <Link to="/details/$module/$id" params={{ module: "reward", id: m.id }} className="font-medium leading-tight hover:text-primary hover:underline">{m.name}</Link>
                             <div className="text-xs text-muted-foreground">{m.code} · {m.title}</div>
                           </div>
                         </div>

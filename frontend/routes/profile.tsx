@@ -409,5 +409,6 @@ function ProfilePage() {
 }
 
 export const Route = createFileRoute("/profile")({
+  head: () => ({ meta: [{ title: "Hồ sơ cá nhân - WIS" }] }),
   component: ProfilePage,
 });

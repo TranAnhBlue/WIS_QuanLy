@@ -13,7 +13,7 @@ import { businessApi } from "@/lib/backend-api";
 export const Route = createFileRoute("/training")({
   head: () => ({
     meta: [
-      { title: "Đào tạo — WIS" },
+      { title: "Đào tạo - WIS" },
       { name: "description", content: "Hệ thống quản lý đào tạo nội bộ và đào tạo khách hàng của tập đoàn Line 2." },
     ],
   }),

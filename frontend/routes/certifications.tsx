@@ -11,7 +11,7 @@ import { AppDatePicker, isDateBefore, isValidDateValue } from "@/components/ui/a
 export const Route = createFileRoute("/certifications")({
   head: () => ({
     meta: [
-      { title: "Phạm vi tiêu chuẩn quy chuẩn — WIS" },
+      { title: "Chứng chỉ - WIS" },
       { name: "description", content: "Quản lý phạm vi tiêu chuẩn quy chuẩn ISO, HACCP, VietGAP..." },
     ],
   }),
@@ -68,7 +68,7 @@ function CertificationsPage() {
     try {
       const saved = isUpdate ? await businessApi.update('certifications', c) : await businessApi.create<Cert>('certifications', c);
       setCerts(prev => isUpdate ? prev.map(x => x.id === saved.id ? saved : x) : [saved, ...prev]);
-      setEditing(null); setSel(saved);
+      setEditing(null);
     } catch (e) { message.error(e instanceof Error ? e.message : 'Không thể lưu'); return; }
     message.success(isUpdate ? `Đã cập nhật ${c.code}` : `Đã tạo ${c.code}`);
   }
@@ -151,12 +151,12 @@ function CertificationsPage() {
             <tbody>
               {filtered.map(c => (
                 <tr key={c.id} className="border-t border-border hover:bg-muted/30">
-                  <td className="px-4 py-3 font-mono text-xs cursor-pointer" onClick={() => setSel(c)}>{c.code}</td>
-                  <td className="px-4 py-3 cursor-pointer" onClick={() => setSel(c)}>
+                  <td className="px-4 py-3 font-mono text-xs"><Link to="/details/$module/$id" params={{ module: "certifications", id: c.id }} className="hover:text-primary hover:underline">{c.code}</Link></td>
+                  <td className="px-4 py-3"><Link to="/details/$module/$id" params={{ module: "certifications", id: c.id }} className="block hover:text-primary">
                     <div className="font-medium">{c.standard}</div>
                     <div className="text-xs text-muted-foreground truncate max-w-[280px]">{c.scope}</div>
-                  </td>
-                  <td className="px-4 py-3 cursor-pointer" onClick={() => setSel(c)}>{c.customer}</td>
+                  </Link></td>
+                  <td className="px-4 py-3"><Link to="/details/$module/$id" params={{ module: "certifications", id: c.id }} className="hover:text-primary">{c.customer}</Link></td>
                   <td className="px-4 py-3"><span className="text-xs px-2 py-0.5 rounded bg-muted">{c.line}</span></td>
                   <td className="px-4 py-3 text-xs">
                     <div className="flex items-center gap-1"><Calendar className="size-3" />{c.issued}</div>

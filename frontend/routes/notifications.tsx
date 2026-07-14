@@ -22,7 +22,7 @@ import { COMPANY_INFO, DEPARTMENT_INFO, type Company, type Department } from "@/
 export const Route = createFileRoute("/notifications")({
   head: () => ({
     meta: [
-      { title: "Thông báo — WIS" },
+      { title: "Thông báo - WIS" },
       { name: "description", content: "Trung tâm thông báo nội bộ WIS." },
     ],
   }),
@@ -142,17 +142,6 @@ function NotificationsPage() {
     if (!keyword) return items;
     return items.filter((item) => `${item.title} ${item.message}`.toLowerCase().includes(keyword));
   }, [items, search]);
-
-  async function markRead(item: Notification) {
-    if (item.isRead) return;
-    try {
-      await apiRequest(`/api/notifications/${item.id}/read`, { method: "PATCH" });
-      setItems((current) => current.map((value) => (value.id === item.id ? { ...value, isRead: true } : value)));
-      setUnread((value) => Math.max(0, value - 1));
-    } catch (error) {
-      message.error(error instanceof Error ? error.message : "Không thể đánh dấu đã đọc");
-    }
-  }
 
   async function markAllRead() {
     try {
@@ -293,7 +282,7 @@ function NotificationsPage() {
                 const Icon = meta.icon;
                 const manageable = item.canManage || canCreate;
                 return (
-                  <article key={item.id} onClick={() => markRead(item)} className={`group flex gap-4 p-4 transition hover:bg-muted/40 sm:p-5 ${item.isRead ? "" : "bg-primary/[0.035]"}`}>
+                  <article key={item.id} onClick={() => { window.location.href = `/details/notifications/${item.id}`; }} className={`group flex cursor-pointer gap-4 p-4 transition hover:bg-muted/40 sm:p-5 ${item.isRead ? "" : "bg-primary/[0.035]"}`}>
                     <div className={`grid size-10 shrink-0 place-items-center rounded-lg ${meta.cls}`}><Icon className="size-5" /></div>
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-start gap-2">
@@ -323,6 +312,63 @@ function NotificationsPage() {
       </main>
 
       {form && <NotificationModal form={form} setForm={setForm} onClose={() => setForm(null)} onSave={save} saving={saving} />}
+    </div>
+  );
+}
+
+function NotificationDetail({ item, loading, canManage, onClose, onEdit, onDelete }: { item: Notification; loading: boolean; canManage: boolean; onClose: () => void; onEdit: () => void; onDelete: () => void }) {
+  const meta = TYPE_META[item.type];
+  const Icon = meta.icon;
+  const audience = item.audience === "all"
+    ? "Toàn công ty"
+    : item.audience === "company"
+      ? item.targetCompanies.map((company) => COMPANY_INFO[company]?.name || company).join(", ")
+      : item.audience === "department"
+        ? item.targetDepartments.map((department) => DEPARTMENT_INFO[department]?.name || department).join(", ")
+        : "Người nhận được chỉ định";
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+      <div className="w-full max-w-2xl overflow-hidden rounded-xl border border-border bg-card shadow-2xl">
+        <div className="flex items-start gap-4 border-b border-border p-5">
+          <div className={`grid size-11 shrink-0 place-items-center rounded-xl ${meta.cls}`}><Icon className="size-6" /></div>
+          <div className="min-w-0 flex-1">
+            <div className="mb-1 flex flex-wrap items-center gap-2">
+              <span className="rounded bg-muted px-2 py-1 text-[11px] font-medium">{CATEGORY_LABELS[item.category]}</span>
+              <span className="text-xs text-muted-foreground">{meta.label}</span>
+            </div>
+            <h2 className="font-display text-xl font-semibold leading-7">{item.title}</h2>
+          </div>
+          <button onClick={onClose} className="grid size-8 shrink-0 place-items-center rounded-md hover:bg-muted" aria-label="Đóng"><X className="size-4" /></button>
+        </div>
+
+        <div className="max-h-[65vh] overflow-y-auto p-5 sm:p-6">
+          {loading ? (
+            <div className="py-12 text-center text-sm text-muted-foreground">Đang tải chi tiết...</div>
+          ) : (
+            <>
+              <div className="whitespace-pre-wrap text-[15px] leading-7 text-foreground">{item.message}</div>
+              <dl className="mt-6 grid gap-4 rounded-lg border border-border bg-muted/30 p-4 text-sm sm:grid-cols-2">
+                <div><dt className="text-xs text-muted-foreground">Thời gian gửi</dt><dd className="mt-1 font-medium">{formatTime(item.createdAt)}</dd></div>
+                <div><dt className="text-xs text-muted-foreground">Người gửi</dt><dd className="mt-1 font-medium">{item.createdBy?.name || "Hệ thống"}</dd></div>
+                <div><dt className="text-xs text-muted-foreground">Phạm vi nhận</dt><dd className="mt-1 font-medium">{audience}</dd></div>
+                <div><dt className="text-xs text-muted-foreground">Trạng thái</dt><dd className="mt-1 inline-flex items-center gap-1.5 font-medium text-emerald-500"><Check className="size-3.5" /> Đã đọc</dd></div>
+              </dl>
+            </>
+          )}
+        </div>
+
+        <div className="flex flex-wrap justify-between gap-2 border-t border-border px-5 py-4">
+          <div className="flex gap-2">
+            {canManage && <button onClick={onEdit} className="inline-flex h-9 items-center gap-2 rounded-md border border-border px-3 text-sm hover:bg-muted"><Pencil className="size-4" /> Sửa</button>}
+            {canManage && <button onClick={onDelete} className="inline-flex h-9 items-center gap-2 rounded-md border border-destructive/30 px-3 text-sm text-destructive hover:bg-destructive/10"><Trash2 className="size-4" /> Xóa</button>}
+          </div>
+          <div className="flex gap-2">
+            {item.link && <a href={item.link} className="inline-flex h-9 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90">Mở nội dung liên quan</a>}
+            <button onClick={onClose} className="h-9 rounded-md border border-border px-4 text-sm hover:bg-muted">Đóng</button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

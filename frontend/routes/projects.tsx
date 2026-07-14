@@ -13,7 +13,7 @@ import { formatVND } from "@/lib/currency";
 export const Route = createFileRoute("/projects")({
   head: () => ({
     meta: [
-      { title: "Dự án — WIS" },
+      { title: "Dự án - WIS" },
       { name: "description", content: "Quản lý dự án theo Line 1, Line 2, Line 3." },
     ],
   }),
@@ -245,11 +245,11 @@ function ProjectsPage() {
                   const S = STATUS_META[p.status];
                   return (
                     <tr key={p.id} className="border-t border-border hover:bg-muted/30">
-                      <td className="px-4 py-3 font-mono text-xs cursor-pointer" onClick={() => setSel(p)}>{p.code}</td>
-                      <td className="px-4 py-3 cursor-pointer" onClick={() => setSel(p)}>
+                      <td className="px-4 py-3 font-mono text-xs"><Link to="/details/$module/$id" params={{ module: "projects", id: p.id }} className="hover:text-primary hover:underline">{p.code}</Link></td>
+                      <td className="px-4 py-3"><Link to="/details/$module/$id" params={{ module: "projects", id: p.id }} className="block hover:text-primary">
                         <div className="font-medium">{p.name}</div>
                         <div className="text-xs text-muted-foreground">{p.customer}</div>
-                      </td>
+                      </Link></td>
                       <td className="px-4 py-3 text-xs">{p.pm}</td>
                       <td className="px-4 py-3"><span className="text-xs px-2 py-0.5 rounded bg-muted">{p.line}</span></td>
                       <td className="px-4 py-3 min-w-[140px]">
@@ -291,7 +291,7 @@ function ProjectsPage() {
                   </div>
                   <div className="space-y-2">
                     {cards.map(p => (
-                      <button key={p.id} onClick={() => setSel(p)} className="w-full text-left rounded border border-border bg-card p-2.5 hover:border-primary/40">
+                      <Link key={p.id} to="/details/$module/$id" params={{ module: "projects", id: p.id }} className="block w-full text-left rounded border border-border bg-card p-2.5 hover:border-primary/40">
                         <div className="text-[10px] font-mono text-muted-foreground">{p.code}</div>
                         <div className="text-sm font-medium mt-0.5 line-clamp-2">{p.name}</div>
                         <div className="flex items-center justify-between mt-2 text-[11px] text-muted-foreground">
@@ -301,7 +301,7 @@ function ProjectsPage() {
                         <div className="mt-1.5 h-1 rounded bg-muted overflow-hidden">
                           <div className={`h-full ${p.progress < 40 ? "bg-destructive" : p.progress < 70 ? "bg-warning" : "bg-success"}`} style={{ width: `${p.progress}%` }} />
                         </div>
-                      </button>
+                      </Link>
                     ))}
                   </div>
                 </div>

@@ -17,7 +17,7 @@ import { formatVND } from "@/lib/currency";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "WIS — Hệ sinh thái xanh" },
+      { title: "Dashboard - WIS" },
       { name: "description", content: "Hệ điều hành tập đoàn — quản trị Line 1, Line 2, Line 3 trên một nền tảng duy nhất." },
       { property: "og:title", content: "WIS — Hệ sinh thái xanh" },
       { property: "og:description", content: "Hệ điều hành tập đoàn — quản trị Line 1, Line 2, Line 3 trên một nền tảng duy nhất." },

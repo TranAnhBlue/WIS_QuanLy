@@ -311,5 +311,6 @@ function RegisterPage() {
 }
 
 export const Route = createFileRoute("/register")({
+  head: () => ({ meta: [{ title: "Đăng ký - WIS" }] }),
   component: RegisterPage,
 });

@@ -15,7 +15,7 @@ import { formatVND } from "@/lib/currency";
 export const Route = createFileRoute("/contracts")({
   head: () => ({
     meta: [
-      { title: "Hợp đồng — WIS" },
+      { title: "Hợp đồng - WIS" },
       { name: "description", content: "Quản lý hợp đồng, tiến độ thanh toán và tài liệu." },
     ],
   }),
@@ -79,7 +79,7 @@ function ContractsPage() {
     try {
       const saved = isUpdate ? await businessApi.update('contracts', c) : await businessApi.create<Contract>('contracts', c);
       setItems(prev => isUpdate ? prev.map(x => x.id === saved.id ? saved : x) : [saved, ...prev]);
-      setEditing(null); setSel(saved);
+      setEditing(null);
     } catch (e) { message.error(e instanceof Error ? e.message : 'Không thể lưu'); return; }
     message.success(isUpdate ? `Đã cập nhật hợp đồng ${c.code}` : `Đã tạo hợp đồng ${c.code}`);
   }
@@ -169,8 +169,8 @@ function ContractsPage() {
                 const S = STATUS_META[c.status];
                 return (
                   <tr key={c.id} className="border-t border-border hover:bg-muted/30">
-                    <td className="px-4 py-3 font-mono text-xs cursor-pointer" onClick={() => setSel(c)}>{c.code}</td>
-                    <td className="px-4 py-3 font-medium cursor-pointer" onClick={() => setSel(c)}>{c.title}</td>
+                    <td className="px-4 py-3 font-mono text-xs"><Link to="/details/$module/$id" params={{ module: "contracts", id: c.id }} className="hover:text-primary hover:underline">{c.code}</Link></td>
+                    <td className="px-4 py-3 font-medium"><Link to="/details/$module/$id" params={{ module: "contracts", id: c.id }} className="hover:text-primary">{c.title}</Link></td>
                     <td className="px-4 py-3 text-xs">{c.customer}</td>
                     <td className="px-4 py-3"><span className="text-xs px-2 py-0.5 rounded bg-muted">{c.line}</span></td>
                     <td className="px-4 py-3 text-right font-mono">{fmt(c.value)}</td>

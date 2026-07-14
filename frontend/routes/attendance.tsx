@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { Clock, CheckCircle2, AlertCircle, LogIn, LogOut, Calendar, ArrowLeft } from "lucide-react";
 import { message } from "antd";
@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
 export const Route = createFileRoute("/attendance")({
+  head: () => ({ meta: [{ title: "Chấm công - WIS" }] }),
   component: AttendancePage,
 });
 
@@ -349,8 +350,10 @@ function AttendancePage() {
             ) : (
               <div className="space-y-2">
                 {attendanceHistory.map((record) => (
-                  <div
+                  <Link
                     key={record._id}
+                    to="/details/$module/$id"
+                    params={{ module: "attendance", id: `${user?.id || ""}__${new Date(record.date).toISOString().slice(0, 10)}` }}
                     className="flex items-center justify-between p-3 rounded-lg bg-surface border border-border hover:bg-surface/80 transition"
                   >
                     <div className="flex-1">
@@ -368,7 +371,7 @@ function AttendancePage() {
                         {getStatusLabel(record.status)}
                       </Badge>
                     </div>
-                  </div>
+                  </Link>
                 ))}
               </div>
             )}

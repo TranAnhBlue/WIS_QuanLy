@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 
 export const Route = createFileRoute("/404")({
+  head: () => ({ meta: [{ title: "Không tìm thấy trang - WIS" }] }),
   component: NotFoundPage,
 });
 

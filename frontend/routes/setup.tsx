@@ -13,6 +13,7 @@ type User = {
 };
 
 export const Route = createFileRoute("/setup")({
+  head: () => ({ meta: [{ title: "Thiết lập - WIS" }] }),
   component: SetupPage,
 });
 

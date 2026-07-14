@@ -134,18 +134,18 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
-      { name: "description", content: "Unity Hub is a comprehensive enterprise platform for managing business operations, customer relations, and internal collaboration." },
-      { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Lovable App" },
-      { property: "og:description", content: "Unity Hub is a comprehensive enterprise platform for managing business operations, customer relations, and internal collaboration." },
+      { title: "WIS" },
+      { name: "description", content: "Hệ thống quản lý nội bộ WIS." },
+      { name: "author", content: "WIS" },
+      { property: "og:title", content: "WIS" },
+      { property: "og:description", content: "Hệ thống quản lý nội bộ WIS." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
-      { name: "twitter:site", content: "@Lovable" },
-      { name: "twitter:title", content: "Lovable App" },
-      { name: "twitter:description", content: "Unity Hub is a comprehensive enterprise platform for managing business operations, customer relations, and internal collaboration." },
-      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/654b352c-ed5c-4188-b1f1-7c6219ee3680/id-preview-606ee506--cee1204b-814c-4f6a-aa3e-bd6bd3398d55.lovable.app-1782788379935.png" },
-      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/654b352c-ed5c-4188-b1f1-7c6219ee3680/id-preview-606ee506--cee1204b-814c-4f6a-aa3e-bd6bd3398d55.lovable.app-1782788379935.png" },
+      { name: "twitter:site", content: "WIS" },
+      { name: "twitter:title", content: "WIS" },
+      { name: "twitter:description", content: "Hệ thống quản lý nội bộ WIS." },
+      { property: "og:image", content: wisFavicon },
+      { name: "twitter:image", content: wisFavicon },
     ],
     links: [
       {
@@ -167,7 +167,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootShell({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="vi">
       <head>
         <HeadContent />
       </head>

@@ -223,5 +223,6 @@ function LoginPage() {
 }
 
 export const Route = createFileRoute("/login")({
+  head: () => ({ meta: [{ title: "Đăng nhập - WIS" }] }),
   component: LoginPage,
 });

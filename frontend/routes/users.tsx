@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState, useMemo, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -601,6 +601,11 @@ function UsersPage() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
+                        <Button variant="ghost" size="sm" asChild>
+                          <Link to="/details/$module/$id" params={{ module: "users", id: user.id }} title="Xem chi tiết">
+                            <Eye className="h-4 w-4" />
+                          </Link>
+                        </Button>
                         <Button
                           variant="ghost"
                           size="sm"
@@ -808,5 +813,6 @@ function UsersPage() {
 }
 
 export const Route = createFileRoute("/users")({
+  head: () => ({ meta: [{ title: "Quản lý người dùng - WIS" }] }),
   component: UsersPage,
 });

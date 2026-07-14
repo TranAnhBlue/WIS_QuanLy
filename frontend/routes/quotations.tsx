@@ -13,7 +13,7 @@ import { formatVND } from "@/lib/currency";
 export const Route = createFileRoute("/quotations")({
   head: () => ({
     meta: [
-      { title: "Báo giá — WIS" },
+      { title: "Báo giá - WIS" },
       { name: "description", content: "Quản lý báo giá gửi khách hàng." },
     ],
   }),
@@ -85,7 +85,7 @@ function QuotationsPage() {
     try {
       const saved = isUpdate ? await businessApi.update('quotations', item) : await businessApi.create<Quote>('quotations', item);
       setItems(prev => isUpdate ? prev.map(x => x.id === saved.id ? saved : x) : [saved, ...prev]);
-      setEditing(null); setSel(saved);
+      setEditing(null);
     } catch (e) { message.error(e instanceof Error ? e.message : 'Không thể lưu'); return; }
     message.success(isUpdate ? `Đã cập nhật báo giá ${item.code}` : `Đã tạo báo giá ${item.code}`);
   }
@@ -173,10 +173,12 @@ function QuotationsPage() {
                 const S = STATUS_META[p.status];
                 return (
                   <tr key={p.id} className="border-t border-border hover:bg-muted/30">
-                    <td className="px-4 py-3 font-mono text-xs cursor-pointer" onClick={() => setSel(p)}>{p.code}</td>
-                    <td className="px-4 py-3 cursor-pointer" onClick={() => setSel(p)}>
+                    <td className="px-4 py-3 font-mono text-xs"><Link to="/details/$module/$id" params={{ module: "quotations", id: p.id }} className="hover:text-primary hover:underline">{p.code}</Link></td>
+                    <td className="px-4 py-3">
+                      <Link to="/details/$module/$id" params={{ module: "quotations", id: p.id }} className="block hover:text-primary">
                       <div className="font-medium">{p.customer}</div>
                       <div className="text-xs text-muted-foreground">{p.contact}</div>
+                      </Link>
                     </td>
                     <td className="px-4 py-3"><span className="text-xs px-2 py-0.5 rounded bg-muted">{p.line}</span></td>
                     <td className="px-4 py-3 text-xs">{p.owner}</td>

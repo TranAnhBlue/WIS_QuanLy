@@ -17,6 +17,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 
 export const Route = createFileRoute("/chat")({
+  head: () => ({ meta: [{ title: "Chat nội bộ - WIS" }] }),
   component: ChatPage,
 });
 
@@ -415,7 +416,7 @@ function ChatPage() {
   // Load all users for creating new chats
   const loadAllUsers = async () => {
     try {
-      const response = await fetch(`${API_BASE}/api/users`, {
+      const response = await fetch(`${API_BASE}/api/chat/users`, {
         headers: {
           Authorization: `Bearer ${session?.token}`,
         },
@@ -424,6 +425,8 @@ function ChatPage() {
       if (data.success) {
         // Filter out current user
         setAllUsers(data.users.filter((u: User) => u._id !== user?.id));
+      } else {
+        antdMessage.error(data.message || "Không thể tải danh sách nhân viên");
       }
     } catch (error) {
       console.error("Error loading users:", error);

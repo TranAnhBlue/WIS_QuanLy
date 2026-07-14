@@ -11,9 +11,12 @@ import {
   addParticipants,
   leaveGroup,
   toggleReaction,
+  getChatUsers,
 } from '../controllers/chatController.js';
 
 const router = express.Router();
+
+router.get('/users', getChatUsers);
 
 // Conversation routes
 router.get('/conversations', getConversations);
