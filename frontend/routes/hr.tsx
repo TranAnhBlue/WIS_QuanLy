@@ -11,6 +11,7 @@ import { apiRequest } from "@/lib/backend-api";
 import { type Company as AccountCompany, type Role } from "@/lib/permissions";
 import { useAuth } from "@/contexts/AuthContext";
 import { AppDatePicker, isValidDateValue, parseDateValue } from "@/components/ui/app-date-picker";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 export const Route = createFileRoute("/hr")({
   head: () => ({
@@ -138,7 +139,7 @@ function accountToEmployee(account: HrAccount): Employee {
     status: account.status === "active" ? "active" : "resigned",
     kpi: 0,
     certifications: [],
-    avatar: avatarFrom(account.name),
+    avatar: account.avatar || "",
     role: account.role,
     companyCode: account.company,
     departmentCode: account.department,
@@ -315,9 +316,10 @@ function HRPage() {
                 <tr key={e.id} className="cursor-pointer transition-colors hover:bg-muted/30" onClick={() => { window.location.href = `/details/hr/${e.id}`; }}>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
-                      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-amber-500/20 to-sky-500/20 text-xs font-semibold ring-1 ring-border/60">
-                        {e.avatar}
-                      </div>
+                      <Avatar className="h-9 w-9 ring-1 ring-border/60">
+                        <AvatarImage src={e.avatar} alt={e.name} className="object-cover" />
+                        <AvatarFallback className="bg-gradient-to-br from-amber-500/20 to-sky-500/20 text-xs font-semibold">{avatarFrom(e.name)}</AvatarFallback>
+                      </Avatar>
                       <div>
                         <div className="font-medium leading-tight">{e.name}</div>
                         <div className="text-xs text-muted-foreground">{e.code} · {e.email}</div>
@@ -418,7 +420,10 @@ function EmployeeDrawer({ employee, onClose, onEdit, onDelete }: { employee: Emp
         </div>
         <div className="space-y-5 p-5">
           <div className="flex items-start gap-4">
-            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-500/20 to-sky-500/20 text-lg font-semibold ring-1 ring-border/60">{employee.avatar}</div>
+            <Avatar className="h-16 w-16 rounded-2xl ring-1 ring-border/60">
+              <AvatarImage src={employee.avatar} alt={employee.name} className="object-cover" />
+              <AvatarFallback className="rounded-2xl bg-gradient-to-br from-amber-500/20 to-sky-500/20 text-lg font-semibold">{avatarFrom(employee.name)}</AvatarFallback>
+            </Avatar>
             <div className="flex-1">
               <div className="text-lg font-semibold leading-tight">{employee.name}</div>
               <div className="text-sm text-muted-foreground">{employee.title}</div>

@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   LayoutDashboard, MessagesSquare, Users, FileText, FileSignature, FolderKanban,
   BadgeCheck, GraduationCap, FlaskConical, Scale, Leaf, UserCog, Target,
@@ -13,6 +13,7 @@ import { DEPARTMENT_INFO, type Role, type Company, type Department, type Permiss
 import { apiRequest } from "@/lib/backend-api";
 import wisLogo from "@/assets/logo-wis.jpg";
 import { formatVND } from "@/lib/currency";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -41,6 +42,15 @@ type ModuleGroup = {
   group: string;
   items: ModuleItem[];
   hiddenForRoles?: Role[]; // Group ẩn với các roles này
+};
+
+type GlobalSearchResult = {
+  id: string;
+  module: string;
+  type: string;
+  title: string;
+  subtitle: string;
+  avatar?: string;
 };
 
 // Helper function để kiểm tra xem một module có được hiển thị cho user hiện tại không
@@ -334,6 +344,14 @@ function DashboardPage() {
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [dashboard, setDashboard] = useState<{ users: number; attendanceToday: number; projects: number; resources: Record<string, number>; revenue: Record<string, number>; employeesByLine: Record<string, number>; projectRows: typeof PROJECTS; activities: typeof ACTIVITY } | null>(null);
   const [vietnamClock, setVietnamClock] = useState<{ dateTime: string; greeting: string } | null>(null);
+  const [assistantQuestion, setAssistantQuestion] = useState("");
+  const [assistantLoading, setAssistantLoading] = useState(false);
+  const [assistantResult, setAssistantResult] = useState<{ answer: string; scope: string; sources: Record<string, number>; readAt: string } | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<GlobalSearchResult[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const updateClock = () => setVietnamClock(getVietnamClock());
@@ -343,9 +361,75 @@ function DashboardPage() {
   }, []);
 
   useEffect(() => {
-    if (isAuthenticated) apiRequest<{ stats: typeof dashboard }>("/api/dashboard")
-      .then((r) => setDashboard(r.stats)).catch((e) => message.error(e.message));
-  }, [isAuthenticated]);
+    if (!isAuthenticated) return;
+    const controller = new AbortController();
+    apiRequest<{ stats: typeof dashboard }>(`/api/dashboard?company=${encodeURIComponent(company)}`, { signal: controller.signal })
+      .then((r) => setDashboard(r.stats))
+      .catch((error) => {
+        if (!controller.signal.aborted) message.error(error.message);
+      });
+    return () => controller.abort();
+  }, [isAuthenticated, company]);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        searchInputRef.current?.focus();
+        setSearchOpen(true);
+      }
+      if (event.key === "Escape") {
+        setSearchOpen(false);
+        searchInputRef.current?.blur();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
+  useEffect(() => {
+    const query = searchQuery.trim();
+    if (query.length < 2) {
+      setSearchResults([]);
+      setSearchLoading(false);
+      return;
+    }
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => {
+      setSearchLoading(true);
+      apiRequest<{ items: GlobalSearchResult[] }>(`/api/search?q=${encodeURIComponent(query)}&company=${encodeURIComponent(company)}`, { signal: controller.signal })
+        .then((result) => setSearchResults(result.items))
+        .catch((error) => {
+          if (error instanceof DOMException && error.name === "AbortError") return;
+          setSearchResults([]);
+        })
+        .finally(() => {
+          if (!controller.signal.aborted) setSearchLoading(false);
+        });
+    }, 250);
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [searchQuery, company]);
+
+  async function askAssistant(value = assistantQuestion) {
+    const question = value.trim();
+    if (question.length < 3 || assistantLoading) return;
+    setAssistantQuestion(question);
+    setAssistantLoading(true);
+    try {
+      const result = await apiRequest<{ answer: string; scope: string; sources: Record<string, number>; readAt: string }>("/api/assistant/query", {
+        method: "POST",
+        body: JSON.stringify({ question }),
+      });
+      setAssistantResult(result);
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : "Không thể truy vấn dữ liệu");
+    } finally {
+      setAssistantLoading(false);
+    }
+  }
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -360,6 +444,14 @@ function DashboardPage() {
     delta: 0,
     desc: `${r.desc} • ${dashboard?.employeesByLine?.[r.company] ?? 0} nhân sự`,
   }));
+  const selectedLine = COMPANIES.find((item) => item.id === company)?.label;
+  const visibleRevenue = company === "group" ? liveRevenue : liveRevenue.filter((item) => item.company === selectedLine);
+
+  function openSearchResult(item: GlobalSearchResult) {
+    setSearchOpen(false);
+    setSearchQuery("");
+    navigate({ to: "/details/$module/$id", params: { module: item.module, id: item.id } });
+  }
   const liveKpis = [
     { label: "Người dùng", value: dashboard?.users ?? 0, sub: "Tài khoản đang quản lý", icon: Users, tone: "info", to: "/users", adminOnly: true },
     { label: "Chấm công hôm nay", value: dashboard?.attendanceToday ?? 0, sub: "Bản ghi hôm nay", icon: CheckCircle2, tone: "success", to: "/attendance-management" },
@@ -552,9 +644,10 @@ function DashboardPage() {
               onClick={() => setShowUserMenu(!showUserMenu)}
               className={`flex items-center gap-3 w-full hover:bg-sidebar-accent rounded-md p-1 transition ${collapsed ? "" : ""}`}
             >
-              <div className="size-8 shrink-0 rounded-full bg-gradient-to-br from-primary to-chart-2 grid place-items-center font-display font-semibold text-primary-foreground text-xs">
-                {getInitials(user.name)}
-              </div>
+              <Avatar className="size-8 shrink-0 ring-1 ring-sidebar-border">
+                <AvatarImage src={user.avatar} alt={user.name} className="object-cover" />
+                <AvatarFallback className="bg-gradient-to-br from-primary to-chart-2 font-display text-xs font-semibold text-primary-foreground">{getInitials(user.name)}</AvatarFallback>
+              </Avatar>
               {!collapsed && (
                 <div className="min-w-0 flex-1">
                   <div className="text-xs font-medium truncate">{user.name}</div>
@@ -623,10 +716,56 @@ function DashboardPage() {
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
               <input
+                ref={searchInputRef}
+                value={searchQuery}
+                onChange={(event) => {
+                  setSearchQuery(event.target.value);
+                  setSearchOpen(true);
+                }}
+                onFocus={() => setSearchOpen(true)}
+                onBlur={() => window.setTimeout(() => setSearchOpen(false), 150)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" && searchResults[0]) {
+                    event.preventDefault();
+                    openSearchResult(searchResults[0]);
+                  }
+                }}
                 placeholder="Tìm khách hàng, dự án, hợp đồng…"
+                aria-label="Tìm kiếm toàn hệ thống"
+                aria-expanded={searchOpen}
                 className="w-full h-9 pl-9 pr-16 rounded-md bg-surface border border-border text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
               />
-              <kbd className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-mono text-muted-foreground border border-border rounded px-1.5 py-0.5">⌘K</kbd>
+              <kbd className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-mono text-muted-foreground border border-border rounded px-1.5 py-0.5">Ctrl K</kbd>
+              {searchOpen && searchQuery.trim().length >= 2 && (
+                <div className="absolute left-0 right-0 top-11 z-50 max-h-96 overflow-y-auto rounded-lg border border-border bg-popover p-1.5 shadow-2xl">
+                  {searchLoading ? (
+                    <div className="px-3 py-6 text-center text-sm text-muted-foreground">Đang tìm kiếm...</div>
+                  ) : searchResults.length === 0 ? (
+                    <div className="px-3 py-6 text-center text-sm text-muted-foreground">Không tìm thấy dữ liệu phù hợp</div>
+                  ) : (
+                    searchResults.map((item) => (
+                      <button
+                        key={`${item.module}-${item.id}`}
+                        type="button"
+                        onMouseDown={(event) => event.preventDefault()}
+                        onClick={() => openSearchResult(item)}
+                        className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left hover:bg-muted focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                      >
+                        {item.avatar ? (
+                          <Avatar className="size-8 shrink-0"><AvatarImage src={item.avatar} alt={item.title} /><AvatarFallback>{item.title.slice(0, 2).toUpperCase()}</AvatarFallback></Avatar>
+                        ) : (
+                          <span className="grid size-8 shrink-0 place-items-center rounded-md bg-primary/10 text-primary"><Search className="size-4" /></span>
+                        )}
+                        <span className="min-w-0 flex-1">
+                          <span className="flex items-center gap-2"><span className="truncate text-sm font-medium">{item.title}</span><span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">{item.type}</span></span>
+                          <span className="block truncate text-xs text-muted-foreground">{item.subtitle}</span>
+                        </span>
+                        <ArrowUpRight className="size-3.5 shrink-0 text-muted-foreground" />
+                      </button>
+                    ))
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
@@ -682,15 +821,17 @@ function DashboardPage() {
           {(user.role === "group_ceo" || user.role === "group_director" || user.role === "group_admin" || 
             user.role === "company_ceo" || user.role === "company_deputy") && (
             <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {liveRevenue.map((r, idx) => (
+              {visibleRevenue.map((r) => {
+                const companyIndex = REVENUE.findIndex((item) => item.company === r.company);
+                return (
                 <div
                   key={r.company}
-                  className="kpi-tile kpi-tile-hover p-5 animate-count-up"
-                  style={{ animationDelay: `${idx * 80}ms` }}
+                  className={`kpi-tile kpi-tile-hover p-5 animate-count-up ${company === "group" ? "" : "md:col-span-3"}`}
+                  style={{ animationDelay: `${companyIndex * 80}ms` }}
                 >
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">
-                      <span className="size-2 rounded-full" style={{ background: COMPANIES[idx + 1].color }} />
+                      <span className="size-2 rounded-full" style={{ background: COMPANIES[companyIndex + 1].color }} />
                       <span className="text-sm font-medium">{r.company}</span>
                     </div>
                     <span className={`flex items-center gap-1 text-xs font-mono px-2 py-0.5 rounded ${
@@ -711,12 +852,13 @@ function DashboardPage() {
                         ? "0,20 12,18 24,16 36,14 48,12 60,10 72,7 84,5 100,3"
                         : "0,8 12,10 24,9 36,13 48,12 60,15 72,14 84,18 100,20"}
                       fill="none"
-                      stroke={COMPANIES[idx + 1].color}
+                      stroke={COMPANIES[companyIndex + 1].color}
                       strokeWidth="1.5"
                     />
                   </svg>
                 </div>
-              ))}
+                );
+              })}
             </section>
           )}
 
@@ -845,6 +987,17 @@ function DashboardPage() {
                 </div>
 
                 <div className="flex-1 p-4 space-y-3 text-sm">
+                  {assistantResult && (
+                    <div className="rounded-md border border-primary/30 bg-primary/5 p-3">
+                      <div className="mb-1.5 flex items-center gap-2 text-[10px] uppercase tracking-wide text-primary">
+                        <Sparkles className="size-3" /> Kết quả từ dữ liệu thật • {assistantResult.scope}
+                      </div>
+                      <p className="whitespace-pre-wrap text-xs leading-5 text-foreground">{assistantResult.answer}</p>
+                      <div className="mt-2 text-[10px] text-muted-foreground">
+                        Đã đọc {Object.values(assistantResult.sources).reduce((total, count) => total + count, 0)} bản ghi từ nhân sự, chấm công, dự án, nghiệp vụ, thông báo và chat.
+                      </div>
+                    </div>
+                  )}
                   <div className="text-muted-foreground text-xs">Câu hỏi gợi ý hôm nay:</div>
                   {((user.role === "group_ceo" || user.role === "group_director") ? [
                     "Công ty nào doanh thu thấp nhất tháng này?",
@@ -864,6 +1017,8 @@ function DashboardPage() {
                   ]).map((q) => (
                     <button
                       key={q}
+                      onClick={() => askAssistant(q)}
+                      disabled={assistantLoading}
                       className="w-full text-left text-xs px-3 py-2.5 rounded-md bg-surface border border-border hover:border-primary/40 hover:bg-surface-2 transition group flex items-start gap-2"
                     >
                       <span className="text-primary mt-0.5">▸</span>
@@ -873,8 +1028,11 @@ function DashboardPage() {
                 </div>
 
                 <div className="p-3 border-t border-border">
-                  <div className="relative">
+                  <form className="relative" onSubmit={(event) => { event.preventDefault(); askAssistant(); }}>
                     <input
+                      value={assistantQuestion}
+                      onChange={(event) => setAssistantQuestion(event.target.value)}
+                      disabled={assistantLoading}
                       placeholder={
                         user.role === "group_ceo" || user.role === "group_director" ? "Hỏi bất kỳ điều gì về tập đoàn…" :
                         user.role === "company_ceo" || user.role === "company_deputy" ? "Hỏi về công ty…" :
@@ -882,10 +1040,10 @@ function DashboardPage() {
                       }
                       className="w-full h-10 pl-3 pr-10 rounded-md bg-surface border border-border text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                     />
-                    <button className="absolute right-1.5 top-1.5 size-7 grid place-items-center rounded bg-primary text-primary-foreground hover:opacity-90 transition">
-                      <Send className="size-3.5" />
+                    <button type="submit" disabled={assistantLoading || assistantQuestion.trim().length < 3} className="absolute right-1.5 top-1.5 size-7 grid place-items-center rounded bg-primary text-primary-foreground hover:opacity-90 transition disabled:cursor-not-allowed disabled:opacity-50">
+                      {assistantLoading ? <span className="size-3.5 animate-spin rounded-full border-2 border-primary-foreground/40 border-t-primary-foreground" /> : <Send className="size-3.5" />}
                     </button>
-                  </div>
+                  </form>
                 </div>
               </div>
             )}

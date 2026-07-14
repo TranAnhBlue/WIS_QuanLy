@@ -9,6 +9,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { ConfirmDialog } from "./certifications";
 import { CurrencyInput } from "@/components/ui/currency-input";
 import { formatVND } from "@/lib/currency";
+import { apiRequest } from "@/lib/backend-api";
 
 export const Route = createFileRoute("/projects")({
   head: () => ({
@@ -31,8 +32,6 @@ type Project = {
   createdAt?: string; updatedAt?: string;
 };
 
-const API_BASE = "http://localhost:5000";
-
 const STATUS_META: Record<Status, { label: string; cls: string; icon: typeof CheckCircle2 }> = {
   planning:   { label: "Lập kế hoạch", cls: "bg-muted text-muted-foreground border-border", icon: Clock },
   "on-track": { label: "Đúng tiến độ", cls: "bg-success/15 text-success border-success/30", icon: CheckCircle2 },
@@ -47,7 +46,7 @@ const emptyProject = (): Project => ({
 });
 
 function ProjectsPage() {
-  const { session } = useAuth();
+  const { session, isLoading: authLoading, isAuthenticated } = useAuth();
   const [items, setItems] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
@@ -60,26 +59,24 @@ function ProjectsPage() {
 
   // Load projects from API
   useEffect(() => {
+    if (authLoading) return;
+    if (!isAuthenticated || !session?.token) {
+      window.location.replace('/login');
+      return;
+    }
     loadProjects();
-  }, []);
+  }, [authLoading, isAuthenticated, session?.token]);
 
   const loadProjects = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`${API_BASE}/api/projects`, {
-        headers: {
-          Authorization: `Bearer ${session?.token}`,
-        },
-      });
-      const data = await response.json();
-      if (data.success) {
-        setItems(data.projects);
-      } else {
-        message.error(data.message || 'Không thể tải dữ liệu dự án');
-      }
+      const data = await apiRequest<{ projects: Project[] }>('/api/projects');
+      setItems(data.projects);
     } catch (error) {
       console.error('Error loading projects:', error);
-      message.error('Lỗi kết nối! Kiểm tra backend server (port 5000)');
+      if (localStorage.getItem('wis_auth_token')) {
+        message.error(error instanceof Error ? error.message : 'Không thể tải dữ liệu dự án');
+      }
     } finally {
       setLoading(false);
     }
@@ -109,55 +106,40 @@ function ProjectsPage() {
   async function save(p: Project) {
     try {
       const isUpdate = p.id && p.id.length > 0;
-      const url = isUpdate ? `${API_BASE}/api/projects/${p.id}` : `${API_BASE}/api/projects`;
+      const url = isUpdate ? `/api/projects/${p.id}` : `/api/projects`;
       const method = isUpdate ? 'PUT' : 'POST';
 
-      const response = await fetch(url, {
+      const data = await apiRequest<{ project: Project }>(url, {
         method,
-        headers: {
-          Authorization: `Bearer ${session?.token}`,
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify(p),
       });
-
-      const data = await response.json();
-      if (data.success) {
-        message.success(isUpdate ? `Đã cập nhật dự án ${p.code}` : `Đã tạo dự án ${p.code}`);
-        setEditing(null);
-        setSel(data.project);
-        await loadProjects(); // Reload list
-      } else {
-        message.error(data.message || 'Không thể lưu dự án');
-      }
+      message.success(isUpdate ? `Đã cập nhật dự án ${p.code}` : `Đã tạo dự án ${p.code}`);
+      setEditing(null);
+      setSel(data.project);
+      await loadProjects();
     } catch (error) {
       console.error('Error saving project:', error);
-      message.error('Lỗi khi lưu dự án');
+      if (localStorage.getItem('wis_auth_token')) {
+        message.error(error instanceof Error ? error.message : 'Lỗi khi lưu dự án');
+      }
     }
   }
 
   async function remove(id: string) {
     try {
-      const response = await fetch(`${API_BASE}/api/projects/${id}`, {
+      await apiRequest(`/api/projects/${id}`, {
         method: 'DELETE',
-        headers: {
-          Authorization: `Bearer ${session?.token}`,
-        },
       });
-
-      const data = await response.json();
-      if (data.success) {
-        const item = items.find(x => x.id === id);
-        message.success(item ? `Đã xóa dự án ${item.code}` : 'Đã xóa dự án');
-        setConfirmDel(null);
-        setSel(null);
-        await loadProjects(); // Reload list
-      } else {
-        message.error(data.message || 'Không thể xóa dự án');
-      }
+      const item = items.find(x => x.id === id);
+      message.success(item ? `Đã xóa dự án ${item.code}` : 'Đã xóa dự án');
+      setConfirmDel(null);
+      setSel(null);
+      await loadProjects();
     } catch (error) {
       console.error('Error deleting project:', error);
-      message.error('Lỗi khi xóa dự án');
+      if (localStorage.getItem('wis_auth_token')) {
+        message.error(error instanceof Error ? error.message : 'Lỗi khi xóa dự án');
+      }
     }
   }
 

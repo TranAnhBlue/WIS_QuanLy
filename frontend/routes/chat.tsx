@@ -2,7 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect, useRef } from "react";
 import { 
   MessageSquare, Send, ArrowLeft, Users, Plus, Search,
-  MoreVertical, Check, CheckCheck, Paperclip, Smile, UserPlus, X, Download, FileText, Image
+  MoreVertical, Check, CheckCheck, Paperclip, Smile, UserPlus, X, Download, FileText, Image, Video
 } from "lucide-react";
 import { message as antdMessage } from "antd";
 import { useAuth } from "@/contexts/AuthContext";
@@ -55,7 +55,7 @@ interface Message {
   conversation: string;
   sender: User;
   content: string;
-  type: "text" | "system" | "image" | "file";
+  type: "text" | "system" | "image" | "video" | "file";
   fileUrl?: string;
   fileName?: string;
   fileSize?: number;
@@ -73,6 +73,13 @@ interface Message {
   isDeleted: boolean;
   createdAt: string;
   updatedAt: string;
+}
+
+const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
+
+function resolveMediaUrl(url?: string) {
+  if (!url) return "";
+  return /^https?:\/\//i.test(url) ? url : `${API_BASE}${url}`;
 }
 
 function ChatPage() {
@@ -109,7 +116,6 @@ function ChatPage() {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showReactionsFor, setShowReactionsFor] = useState<string | null>(null); // Track which message reactions picker is open for
 
-  const API_BASE = "http://localhost:5000";
   const QUICK_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
   const EMOJI_LIST = [
     '😀', '😃', '😄', '😁', '😅', '😂', '🤣', '😊', '😇', '🙂',
@@ -263,7 +269,7 @@ function ChatPage() {
       
       if (selectedFile) {
         formData.append('file', selectedFile);
-        formData.append('type', selectedFile.type.startsWith('image/') ? 'image' : 'file');
+        formData.append('type', selectedFile.type.startsWith('image/') ? 'image' : selectedFile.type.startsWith('video/') ? 'video' : 'file');
       } else {
         formData.append('content', messageInput.trim());
         formData.append('type', 'text');
@@ -872,7 +878,7 @@ function ChatPage() {
                       <div className={`flex gap-2 max-w-[70%] ${isMine ? "flex-row-reverse" : ""}`}>
                         {!isMine && (
                           <Avatar className="h-8 w-8">
-                            <AvatarImage src={msg.sender.avatar} />
+                            <AvatarImage src={isMine ? user.avatar : msg.sender.avatar} />
                             <AvatarFallback>
                               {getInitials(msg.sender.name)}
                             </AvatarFallback>
@@ -910,10 +916,10 @@ function ChatPage() {
                             <div className="relative group">
                               <div className="rounded-2xl overflow-hidden">
                                 <img
-                                  src={`${API_BASE}${msg.fileUrl}`}
+                                  src={resolveMediaUrl(msg.fileUrl)}
                                   alt={msg.fileName || "Image"}
                                   className="max-w-xs max-h-64 object-contain cursor-pointer hover:opacity-90 transition-opacity"
-                                  onClick={() => openImageViewer(`${API_BASE}${msg.fileUrl}`, msg.fileName || 'Image')}
+                                  onClick={() => openImageViewer(resolveMediaUrl(msg.fileUrl), msg.fileName || 'Image')}
                                 />
                                 {/* Only show content if it's different from fileName (means user added a caption) */}
                                 {msg.content && msg.content !== msg.fileName && (
@@ -958,6 +964,20 @@ function ChatPage() {
                             </div>
                           )}
                           
+                          {/* Video Message */}
+                          {msg.type === "video" && msg.fileUrl && (
+                            <div className={`overflow-hidden rounded-2xl ${isMine ? "bg-primary text-primary-foreground" : "bg-muted"}`}>
+                              <video controls preload="metadata" className="max-h-80 w-full max-w-md bg-black" src={resolveMediaUrl(msg.fileUrl)}>
+                                Trình duyệt không hỗ trợ phát video.
+                              </video>
+                              <div className="flex items-center gap-2 px-3 py-2 text-xs">
+                                <Video className="size-4" />
+                                <span className="min-w-0 flex-1 truncate">{msg.fileName || "Video"}</span>
+                                {msg.fileSize && <span className="opacity-70">{(msg.fileSize / 1024 / 1024).toFixed(1)} MB</span>}
+                              </div>
+                            </div>
+                          )}
+
                           {/* File Message */}
                           {msg.type === "file" && msg.fileUrl && (
                             <div
@@ -980,7 +1000,7 @@ function ChatPage() {
                                   )}
                                 </div>
                                 <a
-                                  href={`${API_BASE}${msg.fileUrl}`}
+                                  href={resolveMediaUrl(msg.fileUrl)}
                                   download
                                   target="_blank"
                                   rel="noopener noreferrer"
@@ -1074,6 +1094,8 @@ function ChatPage() {
                       alt="Preview"
                       className="h-16 w-16 object-cover rounded"
                     />
+                  ) : selectedFile.type.startsWith('video/') ? (
+                    <video src={URL.createObjectURL(selectedFile)} className="h-16 w-24 rounded bg-black object-cover" muted />
                   ) : (
                     <div className="h-16 w-16 bg-primary/10 rounded flex items-center justify-center">
                       <FileText className="h-8 w-8 text-primary" />
@@ -1102,14 +1124,14 @@ function ChatPage() {
               <input
                 ref={fileInputRef}
                 type="file"
-                accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar"
+                accept="image/jpeg,image/png,image/gif,image/webp,video/mp4,video/webm,video/quicktime,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip,.rar,.7z"
                 className="hidden"
                 onChange={(e) => {
                   const file = e.target.files?.[0];
                   if (file) {
-                    // Check file size (max 10MB)
-                    if (file.size > 10 * 1024 * 1024) {
-                      antdMessage.error('File quá lớn! Tối đa 10MB');
+                    // Cloudinary upload limit configured for chat: 50 MB.
+                    if (file.size > 50 * 1024 * 1024) {
+                      antdMessage.error('File quá lớn! Tối đa 50 MB');
                       return;
                     }
                     setSelectedFile(file);

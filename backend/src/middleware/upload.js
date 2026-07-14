@@ -1,30 +1,12 @@
 import multer from 'multer';
-import path from 'path';
-import fs from 'fs';
-import { fileURLToPath } from 'url';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const storage = multer.memoryStorage();
 
-// Ensure uploads directory exists
-const uploadsDir = path.join(__dirname, '../../uploads/chat');
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
+function rejectUpload(message, cb) {
+  const error = new Error(message);
+  error.status = 400;
+  cb(error, false);
 }
-
-// Configure storage
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, uploadsDir);
-  },
-  filename: (req, file, cb) => {
-    // Generate unique filename: timestamp-randomstring-originalname
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    const ext = path.extname(file.originalname);
-    const nameWithoutExt = path.basename(file.originalname, ext);
-    cb(null, `${nameWithoutExt}-${uniqueSuffix}${ext}`);
-  }
-});
 
 // File filter - allowed file types
 const fileFilter = (req, file, cb) => {
@@ -36,7 +18,11 @@ const fileFilter = (req, file, cb) => {
     'image/png',
     'image/gif',
     'image/webp',
-    'image/svg+xml',
+    // Videos
+    'video/mp4',
+    'video/webm',
+    'video/quicktime',
+    'video/x-msvideo',
     // Documents
     'application/pdf',
     'application/msword', // .doc
@@ -56,7 +42,7 @@ const fileFilter = (req, file, cb) => {
   if (allowedMimes.includes(file.mimetype)) {
     cb(null, true);
   } else {
-    cb(new Error(`File type not allowed: ${file.mimetype}. Allowed types: images, PDF, Word, Excel, PowerPoint, text, archives.`), false);
+    rejectUpload(`Định dạng file không được hỗ trợ: ${file.mimetype}`, cb);
   }
 };
 
@@ -65,8 +51,17 @@ const upload = multer({
   storage: storage,
   fileFilter: fileFilter,
   limits: {
-    fileSize: 10 * 1024 * 1024, // 10 MB max file size
+    fileSize: 50 * 1024 * 1024,
   }
+});
+
+export const avatarUpload = multer({
+  storage,
+  fileFilter: (req, file, cb) => {
+    const allowed = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+    allowed.includes(file.mimetype) ? cb(null, true) : rejectUpload('Avatar phải là ảnh JPG, PNG, GIF hoặc WebP', cb);
+  },
+  limits: { fileSize: 5 * 1024 * 1024 },
 });
 
 export default upload;

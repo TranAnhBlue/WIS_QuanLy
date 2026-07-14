@@ -22,13 +22,15 @@ const messageSchema = new mongoose.Schema(
     // Message type
     type: {
       type: String,
-      enum: ['text', 'file', 'image', 'system'],
+      enum: ['text', 'file', 'image', 'video', 'system'],
       default: 'text',
     },
     // For file/image messages
     fileUrl: String,
     fileName: String,
     fileSize: Number,
+    filePublicId: { type: String, select: false },
+    fileResourceType: { type: String, select: false },
     // Read status - array of user IDs who have read this message
     readBy: [{
       user: {

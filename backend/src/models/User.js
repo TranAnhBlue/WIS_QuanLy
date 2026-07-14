@@ -82,6 +82,8 @@ const userSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
+    avatarPublicId: { type: String, select: false },
+    avatarResourceType: { type: String, select: false },
     joinDate: {
       type: Date,
       default: Date.now,
@@ -133,6 +135,8 @@ userSchema.methods.comparePassword = async function (candidatePassword) {
 userSchema.methods.getPublicProfile = function () {
   const userObject = this.toObject();
   delete userObject.password;
+  delete userObject.avatarPublicId;
+  delete userObject.avatarResourceType;
   delete userObject.__v;
   return userObject;
 };

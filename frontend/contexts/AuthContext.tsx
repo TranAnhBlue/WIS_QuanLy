@@ -1,10 +1,10 @@
 // Authentication Context - MongoDB API version
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 import type { Role, Permission } from "@/lib/permissions";
 import { ROLE_HIERARCHY, PERMISSIONS } from "@/lib/permissions";
 
 // API Base URL - Backend Node.js API
-const API_BASE = 'http://localhost:5000';
+const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
 
 interface User {
   id: string;
@@ -34,6 +34,7 @@ interface AuthContextType {
   hasRole: (role: Role) => boolean;
   hasPermission: (permission: Permission) => boolean;
   updateProfile: (data: { name: string; phone?: string }) => Promise<{ success: boolean; error?: string }>;
+  uploadAvatar: (file: File) => Promise<{ success: boolean; error?: string }>;
   changePassword: (oldPassword: string, newPassword: string) => Promise<{ success: boolean; error?: string }>;
 }
 
@@ -47,39 +48,84 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  const endSession = useCallback((redirect = true) => {
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(USER_KEY);
+    setSession(null);
+    setUser(null);
+    if (redirect && window.location.pathname !== '/login') {
+      window.location.replace('/login');
+    }
+  }, []);
+
   // Load session from localStorage on mount
   useEffect(() => {
-    const loadSession = () => {
+    const loadSession = async () => {
       try {
         const token = localStorage.getItem(TOKEN_KEY);
         const userData = localStorage.getItem(USER_KEY);
 
-        console.log('🔐 [Auth] Loading session from localStorage:', {
-          hasToken: !!token,
-          tokenPreview: token ? `${token.substring(0, 20)}...` : 'null',
-          hasUserData: !!userData,
-        });
-
         if (token && userData) {
-          const parsedUser = JSON.parse(userData);
-          setSession({ token, user: parsedUser });
-          setUser(parsedUser);
-          console.log('✅ [Auth] Session loaded successfully for:', parsedUser.email);
-        } else {
-          console.log('⚠️ [Auth] No session found in localStorage');
+          JSON.parse(userData);
+          const response = await fetch(`${API_BASE}/api/auth/profile`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (response.status === 401 || response.status === 403) {
+            endSession();
+            return;
+          }
+          if (!response.ok) throw new Error(`Không thể xác minh phiên (${response.status})`);
+          const result = await response.json();
+          if (!result.success || !result.user) throw new Error('Dữ liệu phiên không hợp lệ');
+          localStorage.setItem(USER_KEY, JSON.stringify(result.user));
+          setSession({ token, user: result.user });
+          setUser(result.user);
         }
       } catch (error) {
-        console.error("❌ [Auth] Error loading session:", error);
-        // Clear invalid data
-        localStorage.removeItem(TOKEN_KEY);
-        localStorage.removeItem(USER_KEY);
+        console.error("Không thể khôi phục phiên đăng nhập:", error);
+        endSession();
       } finally {
         setIsLoading(false);
       }
     };
 
     loadSession();
-  }, []);
+  }, [endSession]);
+
+  useEffect(() => {
+    const handleUnauthorized = () => endSession();
+    window.addEventListener('wis:unauthorized', handleUnauthorized);
+    return () => window.removeEventListener('wis:unauthorized', handleUnauthorized);
+  }, [endSession]);
+
+  useEffect(() => {
+    const handleStorage = (event: StorageEvent) => {
+      if ((event.key === TOKEN_KEY || event.key === USER_KEY) && !localStorage.getItem(TOKEN_KEY)) {
+        endSession();
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, [endSession]);
+
+  useEffect(() => {
+    if (!session?.token) return;
+    try {
+      const encodedPayload = session.token.split('.')[1]?.replace(/-/g, '+').replace(/_/g, '/');
+      if (!encodedPayload) throw new Error('Token không hợp lệ');
+      const paddedPayload = encodedPayload.padEnd(Math.ceil(encodedPayload.length / 4) * 4, '=');
+      const payload = JSON.parse(atob(paddedPayload));
+      const expiresAt = Number(payload.exp) * 1000;
+      if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) {
+        endSession();
+        return;
+      }
+      const timer = window.setTimeout(() => endSession(), Math.min(expiresAt - Date.now(), 2_147_483_647));
+      return () => window.clearTimeout(timer);
+    } catch {
+      endSession();
+    }
+  }, [session?.token, endSession]);
 
   const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
     try {
@@ -134,13 +180,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = () => {
     console.log('👋 [Auth] Logging out...');
-    // Clear localStorage
-    localStorage.removeItem(TOKEN_KEY);
-    localStorage.removeItem(USER_KEY);
-
-    // Clear state
-    setSession(null);
-    setUser(null);
+    endSession(false);
     console.log('✅ [Auth] Logout complete');
   };
 
@@ -219,6 +259,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const uploadAvatar = async (file: File): Promise<{ success: boolean; error?: string }> => {
+    try {
+      if (!session?.token) return { success: false, error: 'Chưa đăng nhập' };
+      const body = new FormData();
+      body.append('avatar', file);
+      const response = await fetch(`${API_BASE}/api/auth/avatar`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${session.token}` },
+        body,
+      });
+      const result = await response.json();
+      if (response.ok && result.success && result.user) {
+        localStorage.setItem(USER_KEY, JSON.stringify(result.user));
+        setUser(result.user);
+        setSession({ ...session, user: result.user });
+        return { success: true };
+      }
+      return { success: false, error: result.message || 'Không thể tải avatar lên' };
+    } catch (error) {
+      console.error('Avatar upload error:', error);
+      return { success: false, error: 'Không thể kết nối với server' };
+    }
+  };
+
   const value: AuthContextType = {
     session,
     user,
@@ -229,6 +293,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     hasRole,
     hasPermission,
     updateProfile,
+    uploadAvatar,
     changePassword,
   };
 

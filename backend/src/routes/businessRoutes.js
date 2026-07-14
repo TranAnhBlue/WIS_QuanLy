@@ -24,6 +24,35 @@ const resourceLabels = {
   'vietgap-records': 'VietGAP',
 };
 
+const companyFilters = {
+  group: null,
+  sct: { userCompany: 'SCT_VIET', line: 'Line 1' },
+  wcert: { userCompany: 'WCERT', line: 'Line 2' },
+  ict: { userCompany: 'ICT_VIET', line: 'Line 3' },
+};
+
+const searchableResources = {
+  contracts: { module: 'contracts', label: 'Hợp đồng' },
+  quotations: { module: 'quotations', label: 'Báo giá' },
+  certifications: { module: 'certifications', label: 'Chứng chỉ' },
+  'science-missions': { module: 'science', label: 'Nhiệm vụ khoa học' },
+  'legal-records': { module: 'legal', label: 'Bảo hộ & Pháp lý' },
+  'vietgap-records': { module: 'vietgap', label: 'VietGAP' },
+};
+
+function getCompanyFilter(value) {
+  return Object.prototype.hasOwnProperty.call(companyFilters, value) ? companyFilters[value] : undefined;
+}
+
+function escapeRegex(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function businessRecordTitle(record) {
+  const data = record.data || {};
+  return data.title || data.name || data.standard || data.customer || data.code || resourceLabels[record.resource];
+}
+
 const requiredFields = {
   'science-missions': ['code', 'title', 'manager', 'startDate', 'endDate', 'status'],
   'legal-records': ['code', 'title', 'category', 'owner', 'filingDate', 'status'],
@@ -185,17 +214,79 @@ router.delete('/business/:resource/:id', valid, async (req, res, next) => {
   } catch (error) { next(error); }
 });
 
+router.get('/search', async (req, res, next) => {
+  try {
+    const query = String(req.query.q || '').trim();
+    if (query.length < 2) return res.json({ success: true, items: [] });
+    if (query.length > 100) return res.status(400).json({ success: false, message: 'Từ khóa tìm kiếm quá dài' });
+
+    const selectedCompany = getCompanyFilter(String(req.query.company || 'group'));
+    if (selectedCompany === undefined) return res.status(400).json({ success: false, message: 'Line không hợp lệ' });
+
+    const regex = new RegExp(escapeRegex(query), 'i');
+    const userFilter = selectedCompany ? { company: selectedCompany.userCompany } : {};
+    const projectFilter = { isDeleted: false, ...(selectedCompany ? { line: selectedCompany.line } : {}) };
+    const recordFilter = {
+      resource: { $in: Object.keys(searchableResources) },
+      ...(selectedCompany ? { 'data.line': selectedCompany.line } : {}),
+    };
+    const recordSearchFields = ['code', 'title', 'name', 'customer', 'standard', 'scope', 'owner', 'manager', 'subject', 'farmName', 'province'];
+
+    const [users, projects, records] = await Promise.all([
+      User.find({ ...userFilter, $or: [{ name: regex }, { email: regex }, { phone: regex }] })
+        .select('name email company department avatar').limit(5).lean(),
+      Project.find({ ...projectFilter, $or: [{ code: regex }, { name: regex }, { customer: regex }, { pm: regex }] })
+        .select('code name customer line pm').limit(8).lean(),
+      BusinessRecord.find({
+        ...recordFilter,
+        $or: recordSearchFields.map(field => ({ [`data.${field}`]: regex })),
+      }).sort('-updatedAt').limit(12).lean(),
+    ]);
+
+    const items = [
+      ...projects.map(project => ({
+        id: project._id.toString(), module: 'projects', type: 'Dự án',
+        title: project.name, subtitle: `${project.code} • ${project.customer} • ${project.line}`,
+      })),
+      ...records.map(record => ({
+        id: record._id.toString(), module: searchableResources[record.resource].module,
+        type: searchableResources[record.resource].label,
+        title: businessRecordTitle(record),
+        subtitle: [record.data?.code, record.data?.customer, record.data?.line].filter(Boolean).join(' • '),
+      })),
+      ...users.map(user => ({
+        id: user._id.toString(), module: 'hr', type: 'Nhân sự', title: user.name,
+        subtitle: `${user.email} • ${user.company}`, avatar: user.avatar || '',
+      })),
+    ].slice(0, 20);
+
+    res.json({ success: true, items });
+  } catch (error) { next(error); }
+});
+
 router.get('/dashboard', async (req, res, next) => {
   try {
+    const selectedCompany = getCompanyFilter(String(req.query.company || 'group'));
+    if (selectedCompany === undefined) return res.status(400).json({ success: false, message: 'Line không hợp lệ' });
     const { start: todayStart, end: todayEnd } = getVietnamDayRange();
+    const userFilter = selectedCompany ? { company: selectedCompany.userCompany } : {};
+    const selectedUserIds = selectedCompany
+      ? await User.find(userFilter).distinct('_id')
+      : null;
+    const attendanceFilter = {
+      checkInTime: { $gte: todayStart, $lt: todayEnd },
+      ...(selectedUserIds ? { userId: { $in: selectedUserIds } } : {}),
+    };
+    const projectFilter = { isDeleted: false, ...(selectedCompany ? { line: selectedCompany.line } : {}) };
+    const businessFilter = selectedCompany ? { 'data.line': selectedCompany.line } : {};
     const [users, usersByCompany, attendanceToday, projectRows, grouped, contracts, recent] = await Promise.all([
-      User.countDocuments({}),
-      User.aggregate([{ $group: { _id: '$company', count: { $sum: 1 } } }]),
-      Attendance.countDocuments({ checkInTime: { $gte: todayStart, $lt: todayEnd } }),
-      Project.find({ isDeleted: false }).sort('-updatedAt').limit(5).lean(),
-      BusinessRecord.aggregate([{ $group: { _id: '$resource', count: { $sum: 1 } } }]),
-      BusinessRecord.find({ resource: 'contracts' }).lean(),
-      BusinessRecord.find().sort('-updatedAt').limit(5).lean(),
+      User.countDocuments(userFilter),
+      User.aggregate([{ $match: userFilter }, { $group: { _id: '$company', count: { $sum: 1 } } }]),
+      Attendance.countDocuments(attendanceFilter),
+      Project.find(projectFilter).sort('-updatedAt').limit(5).lean(),
+      BusinessRecord.aggregate([{ $match: businessFilter }, { $group: { _id: '$resource', count: { $sum: 1 } } }]),
+      BusinessRecord.find({ resource: 'contracts', ...businessFilter }).lean(),
+      BusinessRecord.find(businessFilter).sort('-updatedAt').limit(5).lean(),
     ]);
     const resources = Object.fromEntries(grouped.map(x => [x._id, x.count]));
     // Nhân sự uses the User collection as its single source of truth.
@@ -212,7 +303,7 @@ router.get('/dashboard', async (req, res, next) => {
       return acc;
     }, {});
     res.json({ success: true, stats: {
-      users, attendanceToday, projects: await Project.countDocuments({ isDeleted: false }), resources, revenue, employeesByLine,
+      users, attendanceToday, projects: await Project.countDocuments(projectFilter), resources, revenue, employeesByLine,
       projectRows: projectRows.map(p => ({ id: p._id, code: p.code, name: p.name, company: p.line, pm: p.pm, progress: p.progress, status: p.status, due: p.due })),
       activities: recent.map(r => ({
         time: r.updatedAt.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Ho_Chi_Minh' }),

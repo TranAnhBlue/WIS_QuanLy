@@ -1,9 +1,9 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { User as UserIcon, Lock, Save, Eye, EyeOff } from "lucide-react";
+import { User as UserIcon, Lock, Save, Eye, EyeOff, Camera } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { COMPANY_INFO, DEPARTMENT_INFO } from "@/lib/permissions";
 import type { Role } from "@/lib/permissions";
@@ -37,10 +37,12 @@ type PasswordForm = z.infer<typeof passwordSchema>;
 
 function ProfilePage() {
   const navigate = useNavigate();
-  const { user, isAuthenticated, updateProfile, changePassword } = useAuth();
+  const { user, isAuthenticated, updateProfile, uploadAvatar, changePassword } = useAuth();
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
   const [showPasswords, setShowPasswords] = useState({
     old: false,
     new: false,
@@ -94,6 +96,24 @@ function ProfilePage() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const onAvatarSelected = async (file?: File) => {
+    if (!file) return;
+    if (!['image/jpeg', 'image/png', 'image/gif', 'image/webp'].includes(file.type)) {
+      message.error('Avatar phải là ảnh JPG, PNG, GIF hoặc WebP');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      message.error('Ảnh avatar không được vượt quá 5 MB');
+      return;
+    }
+    setAvatarUploading(true);
+    const result = await uploadAvatar(file);
+    setAvatarUploading(false);
+    if (avatarInputRef.current) avatarInputRef.current.value = '';
+    if (result.success) message.success('Đã cập nhật avatar trên Cloudinary');
+    else message.error(result.error || 'Không thể cập nhật avatar');
   };
 
   const onPasswordSubmit = async (data: PasswordForm) => {
@@ -169,10 +189,16 @@ function ProfilePage() {
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-6">
-              <Avatar className="h-24 w-24">
-                <AvatarImage src={user.avatar} alt={user.name} />
-                <AvatarFallback className="text-2xl">{getInitials(user.name)}</AvatarFallback>
-              </Avatar>
+              <div className="relative shrink-0">
+                <Avatar className="h-24 w-24 border border-border">
+                  <AvatarImage src={user.avatar} alt={user.name} />
+                  <AvatarFallback className="text-2xl">{getInitials(user.name)}</AvatarFallback>
+                </Avatar>
+                <input ref={avatarInputRef} type="file" accept="image/jpeg,image/png,image/gif,image/webp" className="hidden" onChange={(event) => onAvatarSelected(event.target.files?.[0])} />
+                <button type="button" disabled={avatarUploading} onClick={() => avatarInputRef.current?.click()} className="absolute -bottom-1 -right-1 grid size-9 place-items-center rounded-full border-2 border-card bg-primary text-primary-foreground shadow-md disabled:opacity-60" title="Đổi avatar">
+                  {avatarUploading ? <span className="size-4 animate-spin rounded-full border-2 border-primary-foreground/40 border-t-primary-foreground" /> : <Camera className="size-4" />}
+                </button>
+              </div>
               <div className="flex-1">
                 <h2 className="text-2xl font-bold">{user.name}</h2>
                 <p className="text-muted-foreground">{user.email}</p>

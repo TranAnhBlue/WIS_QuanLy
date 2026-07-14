@@ -10,6 +10,11 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}): Promi
     headers: { 'Content-Type': 'application/json', ...(token() ? { Authorization: `Bearer ${token()}` } : {}), ...init.headers },
   });
   const body = await response.json().catch(() => ({}));
+  if (response.status === 401 && typeof window !== 'undefined') {
+    localStorage.removeItem('wis_auth_token');
+    localStorage.removeItem('wis_user_data');
+    window.dispatchEvent(new Event('wis:unauthorized'));
+  }
   if (!response.ok) throw new Error(body.message || `API error ${response.status}`);
   return body as T;
 }

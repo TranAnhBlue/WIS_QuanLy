@@ -1,6 +1,7 @@
 import Conversation from '../models/Conversation.js';
 import Message from '../models/Message.js';
 import User from '../models/User.js';
+import { deleteFromCloudinary, uploadToCloudinary } from '../services/cloudinaryService.js';
 
 // Return the active company directory for direct and group conversations.
 // This endpoint is available to every authenticated employee, unlike the
@@ -228,6 +229,7 @@ export const getMessages = async (req, res) => {
 
 // Send message
 export const sendMessage = async (req, res) => {
+  let uploadedAsset = null;
   try {
     const userId = req.user.id;
     const { conversationId } = req.params;
@@ -259,11 +261,16 @@ export const sendMessage = async (req, res) => {
 
     // Handle file upload
     if (req.file) {
+      uploadedAsset = await uploadToCloudinary(req.file, { folder: 'wis/chat', resourceType: 'auto' });
       messageData.content = req.file.originalname; // Use filename as content
-      messageData.fileUrl = `/uploads/chat/${req.file.filename}`;
+      messageData.fileUrl = uploadedAsset.secure_url;
       messageData.fileName = req.file.originalname;
-      messageData.fileSize = req.file.size;
-      messageData.type = req.file.mimetype.startsWith('image/') ? 'image' : 'file';
+      messageData.fileSize = uploadedAsset.bytes || req.file.size;
+      messageData.filePublicId = uploadedAsset.public_id;
+      messageData.fileResourceType = uploadedAsset.resource_type;
+      messageData.type = req.file.mimetype.startsWith('image/')
+        ? 'image'
+        : req.file.mimetype.startsWith('video/') ? 'video' : 'file';
     } else {
       messageData.content = content.trim();
     }
@@ -278,6 +285,8 @@ export const sendMessage = async (req, res) => {
     let lastMessageContent;
     if (messageData.type === 'image') {
       lastMessageContent = `${sender.name} đã gửi hình ảnh`;
+    } else if (messageData.type === 'video') {
+      lastMessageContent = `${sender.name} đã gửi video`;
     } else if (messageData.type === 'file') {
       lastMessageContent = `${sender.name} đã gửi file`;
     } else {
@@ -301,6 +310,9 @@ export const sendMessage = async (req, res) => {
       message: populatedMessage.getPublicProfile(),
     });
   } catch (error) {
+    if (uploadedAsset?.public_id) {
+      await deleteFromCloudinary(uploadedAsset.public_id, uploadedAsset.resource_type).catch(() => {});
+    }
     res.status(500).json({ success: false, message: error.message });
   }
 };
@@ -361,7 +373,7 @@ export const deleteMessage = async (req, res) => {
     const userId = req.user.id;
     const { messageId } = req.params;
 
-    const message = await Message.findById(messageId);
+    const message = await Message.findById(messageId).select('+filePublicId +fileResourceType');
     if (!message) {
       return res.status(404).json({ success: false, message: 'Message not found' });
     }
@@ -374,6 +386,16 @@ export const deleteMessage = async (req, res) => {
     message.isDeleted = true;
     message.deletedAt = new Date();
     await message.save();
+
+    if (message.filePublicId) {
+      await deleteFromCloudinary(message.filePublicId, message.fileResourceType || 'image').catch((error) => {
+        console.error('Cloudinary cleanup failed:', error.message);
+      });
+      message.fileUrl = undefined;
+      message.filePublicId = undefined;
+      message.fileResourceType = undefined;
+      await message.save();
+    }
 
     res.json({
       success: true,

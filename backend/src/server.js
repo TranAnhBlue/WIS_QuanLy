@@ -14,6 +14,9 @@ import projectRoutes from "./routes/projectRoutes.js";
 import businessRoutes from "./routes/businessRoutes.js";
 import { register } from "./controllers/authController.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
+import assistantRoutes from "./routes/assistantRoutes.js";
+import { avatarUpload } from "./middleware/upload.js";
+import { deleteFromCloudinary, uploadToCloudinary } from "./services/cloudinaryService.js";
 
 dotenv.config();
 
@@ -43,30 +46,17 @@ mongoose
 const protect = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
-    console.log("🔐 [Auth Middleware] Checking authorization:", {
-      hasAuthHeader: !!authHeader,
-      authHeaderPreview: authHeader ? `${authHeader.substring(0, 30)}...` : "null",
-      path: req.path,
-      method: req.method,
-    });
 
     const token = authHeader?.replace("Bearer ", "");
     if (!token) {
-      console.log("❌ [Auth Middleware] No token provided");
       return res.status(401).json({ success: false, message: "Không có token" });
     }
 
-    console.log("🔍 [Auth Middleware] Verifying token with JWT_SECRET...");
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    console.log("✅ [Auth Middleware] Token verified successfully for user:", decoded.email);
 
     req.user = decoded;
     next();
   } catch (error) {
-    console.error("❌ [Auth Middleware] Token verification failed:", {
-      error: error.message,
-      name: error.name,
-    });
     res.status(401).json({ success: false, message: "Token không hợp lệ" });
   }
 };
@@ -110,11 +100,6 @@ app.post("/api/auth/login", async (req, res) => {
         message: "Email hoặc mật khẩu không đúng",
       });
     }
-
-    console.log(
-      "✅ [Login] Password verified, generating token with JWT_SECRET:",
-      process.env.JWT_SECRET?.substring(0, 10) + "...",
-    );
 
     const token = jwt.sign(
       {
@@ -817,6 +802,34 @@ app.get("/api/attendance/all", protect, async (req, res) => {
   }
 });
 
+// Upload avatar to Cloudinary. The image is held in memory only and never
+// persisted to the application server's filesystem.
+app.post("/api/auth/avatar", protect, avatarUpload.single("avatar"), async (req, res) => {
+  let uploadedAsset = null;
+  try {
+    if (!req.file) return res.status(400).json({ success: false, message: "Vui lòng chọn ảnh avatar" });
+    const user = await User.findById(req.user.id).select("+avatarPublicId +avatarResourceType");
+    if (!user) return res.status(404).json({ success: false, message: "User không tồn tại" });
+
+    uploadedAsset = await uploadToCloudinary(req.file, { folder: "wis/avatars", resourceType: "image" });
+    const oldAsset = { publicId: user.avatarPublicId, resourceType: user.avatarResourceType };
+    user.avatar = uploadedAsset.secure_url;
+    user.avatarPublicId = uploadedAsset.public_id;
+    user.avatarResourceType = uploadedAsset.resource_type;
+    await user.save();
+
+    if (oldAsset.publicId) {
+      await deleteFromCloudinary(oldAsset.publicId, oldAsset.resourceType || "image").catch((error) => {
+        console.error("Old avatar cleanup failed:", error.message);
+      });
+    }
+    res.json({ success: true, user: user.getPublicProfile() });
+  } catch (error) {
+    if (uploadedAsset?.public_id) await deleteFromCloudinary(uploadedAsset.public_id, uploadedAsset.resource_type).catch(() => {});
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 app.get("/api/attendance/detail/:userId", protect, async (req, res) => {
   try {
     const date = req.query.date;
@@ -854,12 +867,13 @@ app.use("/api/chat", protect, chatRoutes);
 app.use("/api", protect, projectRoutes);
 app.use("/api", protect, businessRoutes);
 app.use("/api", protect, notificationRoutes);
+app.use("/api", protect, assistantRoutes);
 
 // Consistent JSON errors for all modular routes.
 app.use((error, req, res, next) => {
   console.error(error);
   res
-    .status(error.name === "CastError" ? 400 : 500)
+    .status(error.status || (error.name === "CastError" || error.name === "MulterError" ? 400 : 500))
     .json({ success: false, message: error.message });
 });
 
