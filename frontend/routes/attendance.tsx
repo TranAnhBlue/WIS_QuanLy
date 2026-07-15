@@ -6,6 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { API_BASE, authenticatedFetch } from "@/lib/backend-api";
 
 export const Route = createFileRoute("/attendance")({
   head: () => ({ meta: [{ title: "Chấm công - WIS" }] }),
@@ -54,8 +55,7 @@ function AttendancePage() {
 
   const loadTodayAttendance = async () => {
     try {
-      const API_BASE = "http://localhost:5000";
-      const response = await fetch(`${API_BASE}/api/attendance/today`, {
+      const response = await authenticatedFetch(`${API_BASE}/api/attendance/today`, {
         headers: {
           Authorization: `Bearer ${session?.token}`,
         },
@@ -72,12 +72,11 @@ function AttendancePage() {
 
   const loadAttendanceHistory = async () => {
     try {
-      const API_BASE = "http://localhost:5000";
       const now = new Date();
       const month = now.getMonth() + 1;
       const year = now.getFullYear();
 
-      const response = await fetch(
+      const response = await authenticatedFetch(
         `${API_BASE}/api/attendance/history?month=${month}&year=${year}`,
         {
           headers: {
@@ -98,8 +97,7 @@ function AttendancePage() {
   const handleCheckIn = async () => {
     try {
       setLoading(true);
-      const API_BASE = "http://localhost:5000";
-      const response = await fetch(`${API_BASE}/api/attendance/check-in`, {
+      const response = await authenticatedFetch(`${API_BASE}/api/attendance/check-in`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${session?.token}`,
@@ -126,8 +124,7 @@ function AttendancePage() {
   const handleCheckOut = async () => {
     try {
       setLoading(true);
-      const API_BASE = "http://localhost:5000";
-      const response = await fetch(`${API_BASE}/api/attendance/check-out`, {
+      const response = await authenticatedFetch(`${API_BASE}/api/attendance/check-out`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${session?.token}`,
@@ -200,7 +197,7 @@ function AttendancePage() {
     }
   };
 
-  const formatTime = (timeString: string | null) => {
+  const formatTime = (timeString: string | null | undefined) => {
     if (!timeString) return "Chưa";
     const date = new Date(timeString);
     return date.toLocaleTimeString("vi-VN", {

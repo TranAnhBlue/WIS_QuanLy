@@ -66,6 +66,8 @@ type HrAccount = {
   joinDate?: string;
   createdAt?: string;
   status: "active" | "inactive";
+  kpi?: number;
+  certifications?: string[];
 };
 
 const ROLE_LABELS: Record<Role, string> = {
@@ -137,8 +139,8 @@ function accountToEmployee(account: HrAccount): Employee {
     location: COMPANY_LABELS[account.company] || "—",
     joinedAt: (account.joinDate || account.createdAt || "").slice(0, 10) || "—",
     status: account.status === "active" ? "active" : "resigned",
-    kpi: 0,
-    certifications: [],
+    kpi: Number(account.kpi) || 0,
+    certifications: account.certifications || [],
     avatar: account.avatar || "",
     role: account.role,
     companyCode: account.company,

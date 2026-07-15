@@ -3,10 +3,12 @@ import { useEffect, useMemo, useState } from "react";
 import {
   Award, ArrowLeft, Gift, Sparkles, TrendingUp, Star, Trophy, Coins,
   Plus, Search, Filter, ShoppingBag, Target, CheckCircle2,
+  Pencil, Trash2,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { message } from "antd";
-import { businessApi } from "@/lib/backend-api";
+import { apiRequest, businessApi } from "@/lib/backend-api";
+import { useAuth } from "@/contexts/AuthContext";
 
 export const Route = createFileRoute("/reward")({
   head: () => ({
@@ -18,7 +20,7 @@ export const Route = createFileRoute("/reward")({
   component: RewardsPage,
 });
 
-type Line = "Line 1" | "Line 2" | "Line 3";
+type Line = "Tập đoàn" | "Line 1" | "Line 2" | "Line 3";
 
 type Member = {
   id: string;
@@ -49,7 +51,7 @@ type RewardItem = {
   desc: string;
 };
 
-const REWARDS: RewardItem[] = [
+const DEFAULT_REWARDS: RewardItem[] = [
   { id: "r1", name: "Voucher Grab 200K", cost: 500, stock: 20, category: "Voucher", desc: "Mã Grab áp dụng cho di chuyển & GrabFood." },
   { id: "r2", name: "Áo polo đồng phục WIS", cost: 800, stock: 45, category: "Hiện vật", desc: "Áo polo cotton co-giãn, in logo WIS." },
   { id: "r3", name: "Voucher Highlands 300K", cost: 700, stock: 15, category: "Voucher", desc: "Áp dụng tại toàn bộ chi nhánh Highlands." },
@@ -59,31 +61,51 @@ const REWARDS: RewardItem[] = [
 ];
 
 const LINE_COLOR: Record<Line, string> = {
+  "Tập đoàn": "oklch(0.72 0.14 80)",
   "Line 1": "oklch(0.72 0.17 155)",
   "Line 2": "oklch(0.7 0.15 230)",
   "Line 3": "oklch(0.65 0.2 310)",
 };
 
 function RewardsPage() {
+  const { hasPermission } = useAuth();
+  const canManage = hasPermission("manage_hr");
   const [members, setMembers] = useState<Member[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
+  const [catalog, setCatalog] = useState<RewardItem[]>([]);
   const [recordId, setRecordId] = useState("");
   const [filterLine, setFilterLine] = useState<"all" | Line>("all");
   const [q, setQ] = useState("");
   const [tab, setTab] = useState<"leaderboard" | "shop" | "history">("leaderboard");
   const [giveOpen, setGiveOpen] = useState(false);
+  const [rewardEditing, setRewardEditing] = useState<RewardItem | null | undefined>(undefined);
 
   useEffect(() => {
-    businessApi.list<{ id: string; members: Member[]; activities: Activity[] }>("rewards")
-      .then((rows) => {
-        const state = rows[0];
-        if (state) { setRecordId(state.id); setMembers(state.members || []); setActivities(state.activities || []); }
-      }).catch((e) => message.error(e.message));
+    Promise.all([
+      businessApi.list<{ id: string; members: Member[]; activities: Activity[]; catalog?: RewardItem[] }>("rewards"),
+      apiRequest<{ employees: Array<{ id: string; fullName?: string; name?: string; email: string; company?: string; position?: string }> }>("/api/hr/employees"),
+    ]).then(([rows, employeeResult]) => {
+      const state = rows[0];
+      const oldMembers = state?.members || [];
+      const lineFor = (company?: string): Line => company === "WCERT" ? "Line 2" : company === "ICT_VIET" ? "Line 3" : company === "WIS_GROUP" ? "Tập đoàn" : "Line 1";
+      const syncedMembers = employeeResult.employees.map((employee) => {
+        const old = oldMembers.find((member) => member.id === employee.id);
+        return { id: employee.id, name: employee.fullName || employee.name || employee.email, code: employee.email.split("@")[0].toUpperCase(), line: lineFor(employee.company), title: employee.position || "Nhân viên", points: old?.points || 0, delta: old?.delta || 0, streak: old?.streak || 0 };
+      });
+      const nextCatalog = state?.catalog?.length ? state.catalog : DEFAULT_REWARDS;
+      setMembers(syncedMembers); setActivities(state?.activities || []); setCatalog(nextCatalog);
+      if (state) {
+        setRecordId(state.id);
+        if (syncedMembers.length !== oldMembers.length || !state.catalog?.length) businessApi.update("rewards", { ...state, members: syncedMembers, catalog: nextCatalog }).catch(() => undefined);
+      } else {
+        businessApi.create("rewards", { members: syncedMembers, activities: [], catalog: nextCatalog }).then((created: any) => setRecordId(created.id));
+      }
+    }).catch((e) => message.error(e.message));
   }, []);
 
-  async function persist(nextMembers: Member[], nextActivities: Activity[]) {
-    if (recordId) return businessApi.update("rewards", { id: recordId, members: nextMembers, activities: nextActivities });
-    const created = await businessApi.create<{ id: string; members: Member[]; activities: Activity[] }>("rewards", { id: "", members: nextMembers, activities: nextActivities });
+  async function persist(nextMembers: Member[], nextActivities: Activity[], nextCatalog = catalog) {
+    if (recordId) return businessApi.update("rewards", { id: recordId, members: nextMembers, activities: nextActivities, catalog: nextCatalog });
+    const created = await businessApi.create<{ id: string; members: Member[]; activities: Activity[]; catalog: RewardItem[] }>("rewards", { id: "", members: nextMembers, activities: nextActivities, catalog: nextCatalog });
     setRecordId(created.id);
   }
 
@@ -99,20 +121,21 @@ function RewardsPage() {
 
   const totalPoints = members.reduce((s, m) => s + m.points, 0);
   const monthDelta = members.reduce((s, m) => s + m.delta, 0);
-  const byLine = (["Line 1", "Line 2", "Line 3"] as Line[]).map((l) => ({
+  const byLine = (["Tập đoàn", "Line 1", "Line 2", "Line 3"] as Line[]).map((l) => ({
     line: l,
     total: members.filter((m) => m.line === l).reduce((s, m) => s + m.points, 0),
   }));
 
   const redeem = async (item: RewardItem, memberId: string) => {
     const m = members.find((x) => x.id === memberId);
-    if (!m || m.points < item.cost) return;
+    if (!m || m.points < item.cost || item.stock <= 0) return;
     const nextMembers = members.map((x) => (x.id === memberId ? { ...x, points: x.points - item.cost } : x));
     const nextActivities: Activity[] = [
       { id: `a${Date.now()}`, who: m.name, action: `Đổi ${item.name}`, points: -item.cost, when: "Vừa xong", type: "redeem" },
       ...activities,
     ];
-    try { await persist(nextMembers, nextActivities); setMembers(nextMembers); setActivities(nextActivities); }
+    const nextCatalog = catalog.map((reward) => reward.id === item.id ? { ...reward, stock: reward.stock - 1 } : reward);
+    try { await persist(nextMembers, nextActivities, nextCatalog); setMembers(nextMembers); setActivities(nextActivities); setCatalog(nextCatalog); message.success("Đổi thưởng thành công"); }
     catch (e) { message.error(e instanceof Error ? e.message : "Không thể đổi thưởng"); }
   };
 
@@ -129,6 +152,23 @@ function RewardsPage() {
     ];
     try { await persist(nextMembers, nextActivities); setMembers(nextMembers); setActivities(nextActivities); message.success(`Đã cộng ${pts} điểm cho ${m.name}`); }
     catch (e) { message.error(e instanceof Error ? e.message : "Không thể cộng điểm"); }
+  };
+
+  const saveReward = async (item: RewardItem) => {
+    const nextCatalog = catalog.some((reward) => reward.id === item.id)
+      ? catalog.map((reward) => reward.id === item.id ? item : reward)
+      : [item, ...catalog];
+    await persist(members, activities, nextCatalog);
+    setCatalog(nextCatalog);
+    setRewardEditing(undefined);
+    message.success("Đã lưu phần thưởng");
+  };
+
+  const removeReward = async (id: string) => {
+    const nextCatalog = catalog.filter((reward) => reward.id !== id);
+    await persist(members, activities, nextCatalog);
+    setCatalog(nextCatalog);
+    message.success("Đã xóa phần thưởng");
   };
 
   return (
@@ -163,12 +203,12 @@ function RewardsPage() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <StatCard icon={Coins} label="Tổng điểm lưu hành" value={totalPoints.toLocaleString("vi-VN")} sub={`+${monthDelta} tháng này`} tone="primary" />
           <StatCard icon={TrendingUp} label="Điểm cộng tháng này" value={monthDelta.toLocaleString("vi-VN")} sub="Toàn hệ sinh thái" tone="success" />
-          <StatCard icon={Gift} label="Phần thưởng có sẵn" value={REWARDS.length} sub={`${REWARDS.reduce((s, r) => s + r.stock, 0)} suất`} tone="info" />
+          <StatCard icon={Gift} label="Phần thưởng có sẵn" value={catalog.length} sub={`${catalog.reduce((s, r) => s + r.stock, 0)} suất`} tone="info" />
           <StatCard icon={Trophy} label="Người dẫn đầu" value={members.sort((a,b)=>b.points-a.points)[0]?.name.split(" ").slice(-1)[0] || "—"} sub={`${members.sort((a,b)=>b.points-a.points)[0]?.points.toLocaleString("vi-VN")} điểm`} tone="warning" />
         </div>
 
         {/* Line breakdown */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {byLine.map((b) => (
             <div key={b.line} className="rounded-lg border border-border bg-card p-4">
               <div className="flex items-center gap-2">
@@ -220,7 +260,7 @@ function RewardsPage() {
                 />
               </div>
               <div className="inline-flex items-center gap-1 rounded-md border border-border p-1">
-                {(["all", "Line 1", "Line 2", "Line 3"] as const).map((l) => (
+                {(["all", "Tập đoàn", "Line 1", "Line 2", "Line 3"] as const).map((l) => (
                   <button
                     key={l}
                     onClick={() => setFilterLine(l)}
@@ -299,8 +339,10 @@ function RewardsPage() {
         )}
 
         {tab === "shop" && (
+          <div className="space-y-3">
+            {canManage && <div className="flex justify-end"><button onClick={() => setRewardEditing(null)} className="inline-flex items-center gap-2 h-9 px-3 rounded-md bg-primary text-primary-foreground text-sm"><Plus className="size-4" /> Thêm phần thưởng</button></div>}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {REWARDS.map((r) => (
+            {catalog.map((r) => (
               <div key={r.id} className="rounded-lg border border-border bg-card p-4 flex flex-col">
                 <div className="flex items-start justify-between gap-2">
                   <div>
@@ -314,10 +356,11 @@ function RewardsPage() {
                 <p className="text-xs text-muted-foreground mt-2 flex-1">{r.desc}</p>
                 <div className="flex items-center justify-between mt-3 pt-3 border-t border-border">
                   <span className="text-xs text-muted-foreground">Còn {r.stock} suất</span>
-                  <RedeemMenu members={members} onPick={(id) => redeem(r, id)} cost={r.cost} />
+                  <div className="flex items-center gap-1">{canManage && <><button aria-label="Sửa" onClick={() => setRewardEditing(r)} className="p-2 text-muted-foreground hover:text-foreground"><Pencil className="size-4" /></button><button aria-label="Xóa" onClick={() => removeReward(r.id)} className="p-2 text-muted-foreground hover:text-destructive"><Trash2 className="size-4" /></button></>}<RedeemMenu members={members} onPick={(id) => redeem(r, id)} cost={r.cost} /></div>
                 </div>
               </div>
             ))}
+          </div>
           </div>
         )}
 
@@ -344,8 +387,28 @@ function RewardsPage() {
       </main>
 
       {giveOpen && <GivePointsModal members={members} onClose={() => setGiveOpen(false)} onSubmit={(id, pts, r) => { givePoints(id, pts, r); setGiveOpen(false); }} />}
+      {rewardEditing !== undefined && <RewardDialog value={rewardEditing} onClose={() => setRewardEditing(undefined)} onSubmit={saveReward} />}
     </div>
   );
+}
+
+function RewardDialog({ value, onClose, onSubmit }: { value: RewardItem | null; onClose: () => void; onSubmit: (item: RewardItem) => Promise<void> }) {
+  const [form, setForm] = useState<RewardItem>(value || { id: `r${Date.now()}`, name: "", cost: 0, stock: 0, category: "Voucher", desc: "" });
+  const [saving, setSaving] = useState(false);
+  const set = (key: keyof RewardItem, next: string | number) => setForm((current) => ({ ...current, [key]: next }));
+  return <div className="fixed inset-0 z-50 bg-black/60 grid place-items-center p-4" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+    <form className="w-full max-w-lg rounded-xl border border-border bg-card p-5 space-y-4" onSubmit={async (event) => { event.preventDefault(); if (!form.name.trim() || form.cost < 0 || form.stock < 0) return message.error("Vui lòng nhập dữ liệu hợp lệ"); setSaving(true); try { await onSubmit(form); } catch (error) { message.error(error instanceof Error ? error.message : "Không thể lưu"); setSaving(false); } }}>
+      <div className="text-lg font-semibold">{value ? "Sửa phần thưởng" : "Thêm phần thưởng"}</div>
+      <label className="block text-sm space-y-1"><span>Tên phần thưởng *</span><input required value={form.name} onChange={(event) => set("name", event.target.value)} className="w-full h-10 px-3 rounded-md border border-border bg-background" /></label>
+      <div className="grid grid-cols-2 gap-3">
+        <label className="block text-sm space-y-1"><span>Điểm đổi *</span><input required min={0} type="number" value={form.cost} onChange={(event) => set("cost", Number(event.target.value))} className="w-full h-10 px-3 rounded-md border border-border bg-background" /></label>
+        <label className="block text-sm space-y-1"><span>Tồn kho *</span><input required min={0} type="number" value={form.stock} onChange={(event) => set("stock", Number(event.target.value))} className="w-full h-10 px-3 rounded-md border border-border bg-background" /></label>
+      </div>
+      <label className="block text-sm space-y-1"><span>Danh mục</span><select value={form.category} onChange={(event) => set("category", event.target.value)} className="w-full h-10 px-3 rounded-md border border-border bg-background"><option>Voucher</option><option>Hiện vật</option><option>Trải nghiệm</option><option>Đào tạo</option></select></label>
+      <label className="block text-sm space-y-1"><span>Mô tả</span><textarea value={form.desc} onChange={(event) => set("desc", event.target.value)} className="w-full min-h-24 p-3 rounded-md border border-border bg-background" /></label>
+      <div className="flex justify-end gap-2"><button type="button" onClick={onClose} className="h-9 px-3 rounded-md border border-border">Hủy</button><button disabled={saving} className="h-9 px-4 rounded-md bg-primary text-primary-foreground disabled:opacity-50">{saving ? "Đang lưu..." : "Lưu"}</button></div>
+    </form>
+  </div>;
 }
 
 function StatCard({ icon: Icon, label, value, sub, tone }: { icon: LucideIcon; label: string; value: string | number; sub: string; tone: string }) {
@@ -423,7 +486,7 @@ function GivePointsModal({ members, onClose, onSubmit }: { members: Member[]; on
             <div className="text-xs text-muted-foreground mb-1">Nhân sự</div>
             <select value={memberId} onChange={(e) => setMemberId(e.target.value)} className="w-full h-9 px-2 rounded-md border border-border bg-background text-sm">
               {members.map((m) => (
-                <option key={m.id} value={m.id}>{m.name} · {m.line} · {m.points.toLocaleString("vi-VN")}đ</option>
+                <option key={m.id} value={m.id}>{m.name} · {m.line} · {m.points.toLocaleString("vi-VN")} điểm</option>
               ))}
             </select>
           </label>

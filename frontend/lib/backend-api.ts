@@ -4,19 +4,49 @@ function token() {
   return typeof window === 'undefined' ? null : localStorage.getItem('wis_auth_token');
 }
 
-export async function apiRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const response = await fetch(`${API_BASE}${path}`, {
+export async function authenticatedFetch(input: string, init: RequestInit = {}) {
+  const url = input.startsWith("http") ? input : `${API_BASE}${input}`;
+  const response = await fetch(url, {
     ...init,
-    headers: { 'Content-Type': 'application/json', ...(token() ? { Authorization: `Bearer ${token()}` } : {}), ...init.headers },
+    headers: { ...(token() ? { Authorization: `Bearer ${token()}` } : {}), ...init.headers },
+  });
+  if (response.status === 401 && typeof window !== "undefined") {
+    localStorage.removeItem("wis_auth_token");
+    localStorage.removeItem("wis_user_data");
+    window.dispatchEvent(new Event("wis:unauthorized"));
+  }
+  return response;
+}
+
+export async function apiRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const isFormData = typeof FormData !== 'undefined' && init.body instanceof FormData;
+  const response = await authenticatedFetch(path, {
+    ...init,
+    headers: { ...(!isFormData ? { 'Content-Type': 'application/json' } : {}), ...init.headers },
   });
   const body = await response.json().catch(() => ({}));
-  if (response.status === 401 && typeof window !== 'undefined') {
-    localStorage.removeItem('wis_auth_token');
-    localStorage.removeItem('wis_user_data');
-    window.dispatchEvent(new Event('wis:unauthorized'));
-  }
   if (!response.ok) throw new Error(body.message || `API error ${response.status}`);
   return body as T;
+}
+
+export type UploadedBusinessFile = {
+  name: string;
+  url: string;
+  publicId: string;
+  resourceType: string;
+  type: string;
+  size: number;
+};
+
+export async function uploadBusinessFile(file: File, area: 'documents' | 'training' = 'documents') {
+  const body = new FormData();
+  body.append('file', file);
+  body.append('area', area);
+  return apiRequest<{ file: UploadedBusinessFile }>('/api/business-files/upload', { method: 'POST', body }).then(result => result.file);
+}
+
+export function deleteBusinessFile(publicId: string, resourceType = 'raw') {
+  return apiRequest('/api/business-files', { method: 'DELETE', body: JSON.stringify({ publicId, resourceType }) });
 }
 
 export const businessApi = {

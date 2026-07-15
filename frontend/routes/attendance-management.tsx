@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AppDatePicker } from "@/components/ui/app-date-picker";
+import { API_BASE, authenticatedFetch } from "@/lib/backend-api";
 
 export const Route = createFileRoute("/attendance-management")({
   head: () => ({ meta: [{ title: "Quản lý chấm công - WIS" }] }),
@@ -72,8 +73,7 @@ function AttendanceManagementPage() {
   const loadAttendanceData = async () => {
     try {
       setLoading(true);
-      const API_BASE = "http://localhost:5000";
-      const response = await fetch(
+      const response = await authenticatedFetch(
         `${API_BASE}/api/attendance/all?date=${selectedDate}`,
         {
           headers: {

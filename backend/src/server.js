@@ -291,7 +291,7 @@ app.post("/api/hr/employees", protect, async (req, res) => {
       return res.status(403).json({ success: false, message: "Bạn không có quyền thêm nhân sự" });
     }
 
-    const { email, password, name, role, company, department, phone, status, joinDate } = req.body;
+    const { email, password, name, role, company, department, phone, status, joinDate, kpi, certifications } = req.body;
     if (role === "group_admin" && currentUser.role !== "group_admin") {
       return res
         .status(403)
@@ -312,6 +312,8 @@ app.post("/api/hr/employees", protect, async (req, res) => {
       phone: phone || undefined,
       status: status || "active",
       joinDate: joinDate || new Date(),
+      kpi: Number.isFinite(Number(kpi)) ? Number(kpi) : 0,
+      certifications: Array.isArray(certifications) ? certifications : [],
     });
     res.status(201).json({ success: true, employee: employee.getPublicProfile() });
   } catch (error) {
@@ -332,7 +334,7 @@ app.put("/api/hr/employees/:id", protect, async (req, res) => {
     if (!employee)
       return res.status(404).json({ success: false, message: "Nhân sự không tồn tại" });
 
-    const { email, password, name, role, company, department, phone, status, joinDate } = req.body;
+    const { email, password, name, role, company, department, phone, status, joinDate, kpi, certifications } = req.body;
     if (
       (employee.role === "group_admin" || role === "group_admin") &&
       currentUser.role !== "group_admin"
@@ -357,6 +359,8 @@ app.put("/api/hr/employees/:id", protect, async (req, res) => {
     if (phone !== undefined) employee.phone = phone || undefined;
     if (status) employee.status = status;
     if (joinDate) employee.joinDate = joinDate;
+    if (kpi !== undefined) employee.kpi = Number(kpi);
+    if (certifications !== undefined) employee.certifications = Array.isArray(certifications) ? certifications : [];
     if (password) employee.password = password;
     await employee.save();
 
@@ -405,9 +409,9 @@ app.post("/api/users", protect, async (req, res) => {
       });
     }
 
-    const { username, email, password, name, role, company, department, phone } = req.body;
+    const { email, password, name, role, company, department, phone, status } = req.body;
 
-    const existingUser = await User.findOne({ $or: [{ email }, { username }] });
+    const existingUser = await User.findOne({ email: email?.toLowerCase() });
     if (existingUser) {
       return res.status(400).json({
         success: false,
@@ -416,7 +420,6 @@ app.post("/api/users", protect, async (req, res) => {
     }
 
     const user = await User.create({
-      username,
       email,
       password,
       name,
@@ -424,7 +427,7 @@ app.post("/api/users", protect, async (req, res) => {
       company,
       department,
       phone,
-      status: "active",
+      status: status || "active",
     });
 
     res.status(201).json({
@@ -448,19 +451,25 @@ app.put("/api/users/:id", protect, async (req, res) => {
       });
     }
 
-    const { name, role, company, department, phone, status } = req.body;
-    const user = await User.findById(req.params.id);
+    const { email, password, name, role, company, department, phone, status } = req.body;
+    const user = await User.findById(req.params.id).select('+password');
 
     if (!user) {
       return res.status(404).json({ success: false, message: "User không tồn tại" });
     }
 
+    if (email && email.toLowerCase() !== user.email) {
+      const duplicate = await User.exists({ email: email.toLowerCase(), _id: { $ne: user.id } });
+      if (duplicate) return res.status(400).json({ success: false, message: "Email đã tồn tại" });
+      user.email = email;
+    }
     if (name) user.name = name;
     if (role) user.role = role;
     if (company) user.company = company;
     if (department) user.department = department;
     if (phone !== undefined) user.phone = phone;
     if (status) user.status = status;
+    if (password) user.password = password;
 
     await user.save();
 

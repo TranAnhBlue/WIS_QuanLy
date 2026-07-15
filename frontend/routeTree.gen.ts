@@ -13,6 +13,7 @@ import { Route as VietgapRouteImport } from './routes/vietgap'
 import { Route as UsersRouteImport } from './routes/users'
 import { Route as TrainingRouteImport } from './routes/training'
 import { Route as SetupRouteImport } from './routes/setup'
+import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as ScienceRouteImport } from './routes/science'
 import { Route as RewardRouteImport } from './routes/reward'
 import { Route as RegisterRouteImport } from './routes/register'
@@ -22,12 +23,16 @@ import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as NotificationsRouteImport } from './routes/notifications'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as LegalRouteImport } from './routes/legal'
+import { Route as KpiRouteImport } from './routes/kpi'
 import { Route as HrRouteImport } from './routes/hr'
+import { Route as DocumentsRouteImport } from './routes/documents'
+import { Route as CrmRouteImport } from './routes/crm'
 import { Route as ContractsRouteImport } from './routes/contracts'
 import { Route as ChatRouteImport } from './routes/chat'
 import { Route as CertificationsRouteImport } from './routes/certifications'
 import { Route as AttendanceManagementRouteImport } from './routes/attendance-management'
 import { Route as AttendanceRouteImport } from './routes/attendance'
+import { Route as ApprovalsRouteImport } from './routes/approvals'
 import { Route as R404RouteImport } from './routes/404'
 import { Route as R403RouteImport } from './routes/403'
 import { Route as IndexRouteImport } from './routes/index'
@@ -52,6 +57,11 @@ const TrainingRoute = TrainingRouteImport.update({
 const SetupRoute = SetupRouteImport.update({
   id: '/setup',
   path: '/setup',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ScienceRoute = ScienceRouteImport.update({
@@ -99,9 +109,24 @@ const LegalRoute = LegalRouteImport.update({
   path: '/legal',
   getParentRoute: () => rootRouteImport,
 } as any)
+const KpiRoute = KpiRouteImport.update({
+  id: '/kpi',
+  path: '/kpi',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const HrRoute = HrRouteImport.update({
   id: '/hr',
   path: '/hr',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DocumentsRoute = DocumentsRouteImport.update({
+  id: '/documents',
+  path: '/documents',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CrmRoute = CrmRouteImport.update({
+  id: '/crm',
+  path: '/crm',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ContractsRoute = ContractsRouteImport.update({
@@ -127,6 +152,11 @@ const AttendanceManagementRoute = AttendanceManagementRouteImport.update({
 const AttendanceRoute = AttendanceRouteImport.update({
   id: '/attendance',
   path: '/attendance',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApprovalsRoute = ApprovalsRouteImport.update({
+  id: '/approvals',
+  path: '/approvals',
   getParentRoute: () => rootRouteImport,
 } as any)
 const R404Route = R404RouteImport.update({
@@ -159,12 +189,16 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/403': typeof R403Route
   '/404': typeof R404Route
+  '/approvals': typeof ApprovalsRoute
   '/attendance': typeof AttendanceRoute
   '/attendance-management': typeof AttendanceManagementRoute
   '/certifications': typeof CertificationsRoute
   '/chat': typeof ChatRoute
   '/contracts': typeof ContractsRoute
+  '/crm': typeof CrmRoute
+  '/documents': typeof DocumentsRoute
   '/hr': typeof HrRoute
+  '/kpi': typeof KpiRoute
   '/legal': typeof LegalRoute
   '/login': typeof LoginRoute
   '/notifications': typeof NotificationsRoute
@@ -174,6 +208,7 @@ export interface FileRoutesByFullPath {
   '/register': typeof RegisterRoute
   '/reward': typeof RewardRoute
   '/science': typeof ScienceRoute
+  '/settings': typeof SettingsRoute
   '/setup': typeof SetupRoute
   '/training': typeof TrainingRouteWithChildren
   '/users': typeof UsersRoute
@@ -185,12 +220,16 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/403': typeof R403Route
   '/404': typeof R404Route
+  '/approvals': typeof ApprovalsRoute
   '/attendance': typeof AttendanceRoute
   '/attendance-management': typeof AttendanceManagementRoute
   '/certifications': typeof CertificationsRoute
   '/chat': typeof ChatRoute
   '/contracts': typeof ContractsRoute
+  '/crm': typeof CrmRoute
+  '/documents': typeof DocumentsRoute
   '/hr': typeof HrRoute
+  '/kpi': typeof KpiRoute
   '/legal': typeof LegalRoute
   '/login': typeof LoginRoute
   '/notifications': typeof NotificationsRoute
@@ -200,6 +239,7 @@ export interface FileRoutesByTo {
   '/register': typeof RegisterRoute
   '/reward': typeof RewardRoute
   '/science': typeof ScienceRoute
+  '/settings': typeof SettingsRoute
   '/setup': typeof SetupRoute
   '/training': typeof TrainingRouteWithChildren
   '/users': typeof UsersRoute
@@ -212,12 +252,16 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/403': typeof R403Route
   '/404': typeof R404Route
+  '/approvals': typeof ApprovalsRoute
   '/attendance': typeof AttendanceRoute
   '/attendance-management': typeof AttendanceManagementRoute
   '/certifications': typeof CertificationsRoute
   '/chat': typeof ChatRoute
   '/contracts': typeof ContractsRoute
+  '/crm': typeof CrmRoute
+  '/documents': typeof DocumentsRoute
   '/hr': typeof HrRoute
+  '/kpi': typeof KpiRoute
   '/legal': typeof LegalRoute
   '/login': typeof LoginRoute
   '/notifications': typeof NotificationsRoute
@@ -227,6 +271,7 @@ export interface FileRoutesById {
   '/register': typeof RegisterRoute
   '/reward': typeof RewardRoute
   '/science': typeof ScienceRoute
+  '/settings': typeof SettingsRoute
   '/setup': typeof SetupRoute
   '/training': typeof TrainingRouteWithChildren
   '/users': typeof UsersRoute
@@ -240,12 +285,16 @@ export interface FileRouteTypes {
     | '/'
     | '/403'
     | '/404'
+    | '/approvals'
     | '/attendance'
     | '/attendance-management'
     | '/certifications'
     | '/chat'
     | '/contracts'
+    | '/crm'
+    | '/documents'
     | '/hr'
+    | '/kpi'
     | '/legal'
     | '/login'
     | '/notifications'
@@ -255,6 +304,7 @@ export interface FileRouteTypes {
     | '/register'
     | '/reward'
     | '/science'
+    | '/settings'
     | '/setup'
     | '/training'
     | '/users'
@@ -266,12 +316,16 @@ export interface FileRouteTypes {
     | '/'
     | '/403'
     | '/404'
+    | '/approvals'
     | '/attendance'
     | '/attendance-management'
     | '/certifications'
     | '/chat'
     | '/contracts'
+    | '/crm'
+    | '/documents'
     | '/hr'
+    | '/kpi'
     | '/legal'
     | '/login'
     | '/notifications'
@@ -281,6 +335,7 @@ export interface FileRouteTypes {
     | '/register'
     | '/reward'
     | '/science'
+    | '/settings'
     | '/setup'
     | '/training'
     | '/users'
@@ -292,12 +347,16 @@ export interface FileRouteTypes {
     | '/'
     | '/403'
     | '/404'
+    | '/approvals'
     | '/attendance'
     | '/attendance-management'
     | '/certifications'
     | '/chat'
     | '/contracts'
+    | '/crm'
+    | '/documents'
     | '/hr'
+    | '/kpi'
     | '/legal'
     | '/login'
     | '/notifications'
@@ -307,6 +366,7 @@ export interface FileRouteTypes {
     | '/register'
     | '/reward'
     | '/science'
+    | '/settings'
     | '/setup'
     | '/training'
     | '/users'
@@ -319,12 +379,16 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   R403Route: typeof R403Route
   R404Route: typeof R404Route
+  ApprovalsRoute: typeof ApprovalsRoute
   AttendanceRoute: typeof AttendanceRoute
   AttendanceManagementRoute: typeof AttendanceManagementRoute
   CertificationsRoute: typeof CertificationsRoute
   ChatRoute: typeof ChatRoute
   ContractsRoute: typeof ContractsRoute
+  CrmRoute: typeof CrmRoute
+  DocumentsRoute: typeof DocumentsRoute
   HrRoute: typeof HrRoute
+  KpiRoute: typeof KpiRoute
   LegalRoute: typeof LegalRoute
   LoginRoute: typeof LoginRoute
   NotificationsRoute: typeof NotificationsRoute
@@ -334,6 +398,7 @@ export interface RootRouteChildren {
   RegisterRoute: typeof RegisterRoute
   RewardRoute: typeof RewardRoute
   ScienceRoute: typeof ScienceRoute
+  SettingsRoute: typeof SettingsRoute
   SetupRoute: typeof SetupRoute
   TrainingRoute: typeof TrainingRouteWithChildren
   UsersRoute: typeof UsersRoute
@@ -369,6 +434,13 @@ declare module '@tanstack/react-router' {
       path: '/setup'
       fullPath: '/setup'
       preLoaderRoute: typeof SetupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/science': {
@@ -434,11 +506,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LegalRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/kpi': {
+      id: '/kpi'
+      path: '/kpi'
+      fullPath: '/kpi'
+      preLoaderRoute: typeof KpiRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/hr': {
       id: '/hr'
       path: '/hr'
       fullPath: '/hr'
       preLoaderRoute: typeof HrRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/documents': {
+      id: '/documents'
+      path: '/documents'
+      fullPath: '/documents'
+      preLoaderRoute: typeof DocumentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/crm': {
+      id: '/crm'
+      path: '/crm'
+      fullPath: '/crm'
+      preLoaderRoute: typeof CrmRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/contracts': {
@@ -474,6 +567,13 @@ declare module '@tanstack/react-router' {
       path: '/attendance'
       fullPath: '/attendance'
       preLoaderRoute: typeof AttendanceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/approvals': {
+      id: '/approvals'
+      path: '/approvals'
+      fullPath: '/approvals'
+      preLoaderRoute: typeof ApprovalsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/404': {
@@ -530,12 +630,16 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   R403Route: R403Route,
   R404Route: R404Route,
+  ApprovalsRoute: ApprovalsRoute,
   AttendanceRoute: AttendanceRoute,
   AttendanceManagementRoute: AttendanceManagementRoute,
   CertificationsRoute: CertificationsRoute,
   ChatRoute: ChatRoute,
   ContractsRoute: ContractsRoute,
+  CrmRoute: CrmRoute,
+  DocumentsRoute: DocumentsRoute,
   HrRoute: HrRoute,
+  KpiRoute: KpiRoute,
   LegalRoute: LegalRoute,
   LoginRoute: LoginRoute,
   NotificationsRoute: NotificationsRoute,
@@ -545,6 +649,7 @@ const rootRouteChildren: RootRouteChildren = {
   RegisterRoute: RegisterRoute,
   RewardRoute: RewardRoute,
   ScienceRoute: ScienceRoute,
+  SettingsRoute: SettingsRoute,
   SetupRoute: SetupRoute,
   TrainingRoute: TrainingRouteWithChildren,
   UsersRoute: UsersRoute,

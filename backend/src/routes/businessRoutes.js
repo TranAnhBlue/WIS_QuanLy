@@ -3,14 +3,18 @@ import BusinessRecord from '../models/BusinessRecord.js';
 import User from '../models/User.js';
 import Attendance from '../models/Attendance.js';
 import Project from '../models/Project.js';
+import upload from '../middleware/upload.js';
+import { deleteFromCloudinary, uploadToCloudinary } from '../services/cloudinaryService.js';
 
 const router = express.Router();
 const resources = new Set([
-  'employees', 'contracts', 'quotations', 'certifications', 'rewards',
+  'employees', 'customers', 'contracts', 'quotations', 'certifications', 'rewards',
   'trainings', 'training-lessons', 'settings',
   'science-missions', 'legal-records', 'vietgap-records',
+  'kpis', 'approvals', 'documents',
 ]);
 const resourceLabels = {
+  customers: 'Khách hàng',
   employees: 'Nhân sự',
   contracts: 'Hợp đồng',
   quotations: 'Báo giá',
@@ -22,6 +26,9 @@ const resourceLabels = {
   'science-missions': 'Nhiệm vụ khoa học',
   'legal-records': 'Bảo hộ và pháp lý',
   'vietgap-records': 'VietGAP',
+  kpis: 'KPI',
+  approvals: 'Duyệt',
+  documents: 'Tài liệu',
 };
 
 const companyFilters = {
@@ -32,12 +39,17 @@ const companyFilters = {
 };
 
 const searchableResources = {
+  customers: { module: 'crm', label: 'Khách hàng' },
   contracts: { module: 'contracts', label: 'Hợp đồng' },
   quotations: { module: 'quotations', label: 'Báo giá' },
   certifications: { module: 'certifications', label: 'Chứng chỉ' },
   'science-missions': { module: 'science', label: 'Nhiệm vụ khoa học' },
   'legal-records': { module: 'legal', label: 'Bảo hộ & Pháp lý' },
   'vietgap-records': { module: 'vietgap', label: 'VietGAP' },
+  kpis: { module: 'kpi', label: 'KPI' },
+  approvals: { module: 'approvals', label: 'Duyệt' },
+  documents: { module: 'documents', label: 'Tài liệu' },
+  trainings: { module: 'training', label: 'Đào tạo' },
 };
 
 function getCompanyFilter(value) {
@@ -54,10 +66,45 @@ function businessRecordTitle(record) {
 }
 
 const requiredFields = {
+  customers: ['code', 'name', 'line', 'status', 'owner'],
   'science-missions': ['code', 'title', 'manager', 'startDate', 'endDate', 'status'],
   'legal-records': ['code', 'title', 'category', 'owner', 'filingDate', 'status'],
   'vietgap-records': ['code', 'title', 'customer', 'standard', 'owner', 'startDate', 'status'],
+  kpis: ['code', 'title', 'owner', 'period', 'target', 'actual', 'status'],
+  approvals: ['code', 'title', 'requester', 'status'],
+  documents: ['code', 'title', 'fileName', 'fileUrl', 'status'],
+  settings: ['key', 'label', 'value', 'group'],
+  trainings: ['code', 'title', 'category', 'company', 'instructor', 'startDate', 'duration', 'format', 'capacity', 'status'],
 };
+
+const businessManageRoles = new Set([
+  'group_ceo', 'group_director', 'group_admin', 'company_ceo', 'company_deputy',
+  'dept_manager', 'dept_deputy', 'team_leader', 'senior_specialist',
+]);
+
+async function authorizeBusinessMutation(req, res, next) {
+  try {
+    const user = await User.findById(req.user.id).select('role');
+    if (!user) return res.status(401).json({ success: false, message: 'Người dùng không tồn tại' });
+    if (req.params.resource === 'settings' && user.role !== 'group_admin') {
+      return res.status(403).json({ success: false, message: 'Chỉ quản trị viên được thay đổi thiết lập' });
+    }
+    if (req.params.resource === 'documents' && user.role !== 'intern') return next();
+    if (!businessManageRoles.has(user.role)) {
+      return res.status(403).json({ success: false, message: 'Bạn không có quyền thay đổi dữ liệu module này' });
+    }
+    next();
+  } catch (error) { next(error); }
+}
+
+async function authorizeFileMutation(req, res, next) {
+  try {
+    const user = await User.findById(req.user.id).select('role');
+    if (!user) return res.status(401).json({ success: false, message: 'Người dùng không tồn tại' });
+    if (!businessManageRoles.has(user.role)) return res.status(403).json({ success: false, message: 'Bạn không có quyền quản lý file' });
+    next();
+  } catch (error) { next(error); }
+}
 
 function parseBusinessDate(value) {
   if (!value) return null;
@@ -85,17 +132,17 @@ function validateBusinessData(resource, data) {
     const progress = Number(data.progress);
     if (!Number.isFinite(progress) || progress < 0 || progress > 100) return 'Tiến độ phải từ 0 đến 100';
   }
-  for (const field of ['budget', 'area']) {
+  for (const field of ['budget', 'area', 'amount', 'target', 'actual', 'capacity', 'enrolled', 'price', 'stock', 'cost']) {
     if (data[field] !== undefined && data[field] !== '') {
       const value = Number(data[field]);
       if (!Number.isFinite(value) || value < 0) return `${field === 'budget' ? 'Kinh phí' : 'Diện tích'} không hợp lệ`;
     }
   }
-  const dateFields = ['startDate', 'endDate', 'filingDate', 'deadline', 'auditDate', 'expiryDate'];
+  const dateFields = ['startDate', 'endDate', 'filingDate', 'deadline', 'auditDate', 'expiryDate', 'requestDate', 'dueDate'];
   for (const field of dateFields) {
     if (data[field] && !parseBusinessDate(data[field])) return `Ngày tại trường ${field} không hợp lệ`;
   }
-  const ranges = [['startDate', 'endDate'], ['filingDate', 'deadline'], ['auditDate', 'expiryDate']];
+  const ranges = [['startDate', 'endDate'], ['filingDate', 'deadline'], ['auditDate', 'expiryDate'], ['requestDate', 'dueDate']];
   for (const [startField, endField] of ranges) {
     const start = parseBusinessDate(data[startField]);
     const end = parseBusinessDate(data[endField]);
@@ -107,6 +154,7 @@ function validateBusinessData(resource, data) {
 function getActivityTarget(record) {
   const data = record.data || {};
   const targetsByResource = {
+    customers: data.name || data.code,
     employees: data.name || data.email,
     contracts: data.title || data.customer,
     quotations: data.customer || data.title,
@@ -115,6 +163,9 @@ function getActivityTarget(record) {
     trainings: data.title || data.name,
     'training-lessons': data.title || data.name,
     settings: data.name || data.label,
+    kpis: data.title || data.code,
+    approvals: data.title || data.code,
+    documents: data.title || data.fileName,
     'science-missions': data.title || data.code,
     'legal-records': data.title || data.code,
     'vietgap-records': data.title || data.customer || data.code,
@@ -146,6 +197,30 @@ const valid = (req, res, next) => resources.has(req.params.resource)
   ? next()
   : res.status(404).json({ success: false, message: 'Phân hệ không tồn tại' });
 
+router.post('/business-files/upload', authorizeFileMutation, upload.single('file'), async (req, res, next) => {
+  try {
+    if (!req.file) return res.status(400).json({ success: false, message: 'Vui lòng chọn file' });
+    const area = ['documents', 'training'].includes(req.body.area) ? req.body.area : 'general';
+    const asset = await uploadToCloudinary(req.file, { folder: `wis/${area}`, resourceType: 'auto' });
+    res.status(201).json({ success: true, file: {
+      name: req.file.originalname,
+      url: asset.secure_url,
+      publicId: asset.public_id,
+      resourceType: asset.resource_type,
+      type: req.file.mimetype,
+      size: asset.bytes || req.file.size,
+    } });
+  } catch (error) { next(error); }
+});
+
+router.delete('/business-files', authorizeFileMutation, async (req, res, next) => {
+  try {
+    if (!req.body.publicId) return res.status(400).json({ success: false, message: 'Thiếu mã file Cloudinary' });
+    await deleteFromCloudinary(req.body.publicId, req.body.resourceType || 'raw');
+    res.json({ success: true });
+  } catch (error) { next(error); }
+});
+
 router.get('/business/:resource', valid, async (req, res, next) => {
   try {
     const records = await BusinessRecord.find({ resource: req.params.resource }).sort('-createdAt').lean();
@@ -172,7 +247,7 @@ router.get('/rewards/members/:memberId', async (req, res, next) => {
   } catch (error) { next(error); }
 });
 
-router.post('/business/:resource', valid, async (req, res, next) => {
+router.post('/business/:resource', valid, authorizeBusinessMutation, async (req, res, next) => {
   try {
     const { id, _id, createdAt, updatedAt, ...data } = req.body;
     const validationError = validateBusinessData(req.params.resource, data);
@@ -181,12 +256,15 @@ router.post('/business/:resource', valid, async (req, res, next) => {
       const duplicate = await BusinessRecord.exists({ resource: req.params.resource, 'data.code': data.code });
       if (duplicate) return res.status(409).json({ success: false, message: 'Mã hồ sơ đã tồn tại' });
     }
+    if (req.params.resource === 'settings' && await BusinessRecord.exists({ resource: 'settings', 'data.key': data.key })) {
+      return res.status(409).json({ success: false, message: 'Khóa thiết lập đã tồn tại' });
+    }
     const record = await BusinessRecord.create({ resource: req.params.resource, data, createdBy: req.user.id });
     res.status(201).json({ success: true, item: { ...record.data, id: record.id, createdAt: record.createdAt, updatedAt: record.updatedAt } });
   } catch (error) { next(error); }
 });
 
-router.put('/business/:resource/:id', valid, async (req, res, next) => {
+router.put('/business/:resource/:id', valid, authorizeBusinessMutation, async (req, res, next) => {
   try {
     const { id, _id, createdAt, updatedAt, ...data } = req.body;
     const validationError = validateBusinessData(req.params.resource, data);
@@ -197,19 +275,37 @@ router.put('/business/:resource/:id', valid, async (req, res, next) => {
       });
       if (duplicate) return res.status(409).json({ success: false, message: 'Mã hồ sơ đã tồn tại' });
     }
+    if (req.params.resource === 'settings' && await BusinessRecord.exists({ _id: { $ne: req.params.id }, resource: 'settings', 'data.key': data.key })) {
+      return res.status(409).json({ success: false, message: 'Khóa thiết lập đã tồn tại' });
+    }
+    const previous = await BusinessRecord.findOne({ _id: req.params.id, resource: req.params.resource }).lean();
     const record = await BusinessRecord.findOneAndUpdate(
       { _id: req.params.id, resource: req.params.resource },
       { data, updatedBy: req.user.id }, { new: true, runValidators: true }
     );
     if (!record) return res.status(404).json({ success: false, message: 'Dữ liệu không tồn tại' });
+    if (previous?.data?.filePublicId && previous.data.filePublicId !== data.filePublicId) {
+      await deleteFromCloudinary(previous.data.filePublicId, previous.data.fileResourceType || 'raw').catch(() => {});
+    }
     res.json({ success: true, item: { ...record.data, id: record.id, createdAt: record.createdAt, updatedAt: record.updatedAt } });
   } catch (error) { next(error); }
 });
 
-router.delete('/business/:resource/:id', valid, async (req, res, next) => {
+router.delete('/business/:resource/:id', valid, authorizeBusinessMutation, async (req, res, next) => {
   try {
     const record = await BusinessRecord.findOneAndDelete({ _id: req.params.id, resource: req.params.resource });
     if (!record) return res.status(404).json({ success: false, message: 'Dữ liệu không tồn tại' });
+    if (record.data?.filePublicId) {
+      await deleteFromCloudinary(record.data.filePublicId, record.data.fileResourceType || 'raw').catch(() => {});
+    }
+    if (req.params.resource === 'trainings') {
+      const lessonRecords = await BusinessRecord.find({ resource: 'training-lessons', 'data.courseId': req.params.id });
+      for (const lessonRecord of lessonRecords) {
+        const files = (lessonRecord.data?.lessons || []).flatMap(lesson => lesson.files || []);
+        await Promise.all(files.filter(file => file.publicId).map(file => deleteFromCloudinary(file.publicId, file.resourceType || 'raw').catch(() => {})));
+      }
+      await BusinessRecord.deleteMany({ resource: 'training-lessons', 'data.courseId': req.params.id });
+    }
     res.json({ success: true });
   } catch (error) { next(error); }
 });
@@ -230,7 +326,7 @@ router.get('/search', async (req, res, next) => {
       resource: { $in: Object.keys(searchableResources) },
       ...(selectedCompany ? { 'data.line': selectedCompany.line } : {}),
     };
-    const recordSearchFields = ['code', 'title', 'name', 'customer', 'standard', 'scope', 'owner', 'manager', 'subject', 'farmName', 'province'];
+    const recordSearchFields = ['code', 'title', 'name', 'customer', 'standard', 'scope', 'owner', 'manager', 'subject', 'farmName', 'province', 'taxCode', 'contact', 'email', 'phone'];
 
     const [users, projects, records] = await Promise.all([
       User.find({ ...userFilter, $or: [{ name: regex }, { email: regex }, { phone: regex }] })

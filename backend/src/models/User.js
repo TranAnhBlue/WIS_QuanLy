@@ -93,6 +93,16 @@ const userSchema = new mongoose.Schema(
       enum: ['active', 'inactive'],
       default: 'active',
     },
+    kpi: {
+      type: Number,
+      min: 0,
+      max: 100,
+      default: 0,
+    },
+    certifications: {
+      type: [String],
+      default: [],
+    },
   },
   {
     timestamps: true, // Adds createdAt and updatedAt

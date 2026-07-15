@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { message } from "antd";
 import { useAuth } from "@/contexts/AuthContext";
+import { API_BASE, authenticatedFetch } from "@/lib/backend-api";
 import type { Role, Company, Department } from "@/lib/permissions";
 import { COMPANY_INFO, DEPARTMENT_INFO, ROLE_HIERARCHY } from "@/lib/permissions";
 import { Button } from "@/components/ui/button";
@@ -63,7 +64,7 @@ type UserForm = z.infer<typeof userSchema>;
 
 function UsersPage() {
   const navigate = useNavigate();
-  const { user: currentUser, session, isAuthenticated, hasPermission } = useAuth();
+  const { user: currentUser, session, isAuthenticated, isLoading, hasPermission } = useAuth();
   const [users, setUsers] = useState<ApiUser[]>([]);
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState<string>("all");
@@ -94,6 +95,7 @@ function UsersPage() {
 
   // Check permission - only group_admin can access
   useEffect(() => {
+    if (isLoading) return;
     console.log('🔍 Users Page - Permission Check:');
     console.log('   isAuthenticated:', isAuthenticated);
     console.log('   session:', !!session);
@@ -113,7 +115,7 @@ function UsersPage() {
     }
     
     console.log('✅ Access granted - loading users');
-  }, [isAuthenticated, session, hasPermission, navigate]);
+  }, [isAuthenticated, isLoading, session, hasPermission, navigate]);
 
   // Load users from MongoDB API
   useEffect(() => {
@@ -140,8 +142,7 @@ function UsersPage() {
       }
 
       // Call Backend Node.js API (không phải Nitro API)
-      const API_BASE = 'http://localhost:5000';
-      const response = await fetch(`${API_BASE}/api/users`, {
+      const response = await authenticatedFetch(`${API_BASE}/api/users`, {
         headers: {
           'Authorization': `Bearer ${session.token}`,
         },
@@ -191,7 +192,7 @@ function UsersPage() {
   }, [users]);
 
   // Render guards must stay after every hook to preserve React's hook order.
-  if (!isAuthenticated || !session || !hasPermission("manage_users")) {
+  if (isLoading || !isAuthenticated || !session || !hasPermission("manage_users")) {
     return null;
   }
 
@@ -244,11 +245,10 @@ function UsersPage() {
         return;
       }
 
-      const API_BASE = 'http://localhost:5000';
 
       if (editingUser) {
         // Update existing user via Backend API
-        const response = await fetch(`${API_BASE}/api/users/${editingUser.id}`, {
+        const response = await authenticatedFetch(`${API_BASE}/api/users/${editingUser.id}`, {
           method: 'PUT',
           headers: {
             'Authorization': `Bearer ${session.token}`,
@@ -281,7 +281,7 @@ function UsersPage() {
           return;
         }
 
-        const response = await fetch(`${API_BASE}/api/users`, {
+        const response = await authenticatedFetch(`${API_BASE}/api/users`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${session.token}`,
@@ -335,10 +335,9 @@ function UsersPage() {
         return;
       }
 
-      const API_BASE = 'http://localhost:5000';
 
       // Call Backend API to delete user from MongoDB
-      const response = await fetch(`${API_BASE}/api/users/${deletingUser.id}`, {
+      const response = await authenticatedFetch(`${API_BASE}/api/users/${deletingUser.id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${session.token}`,

@@ -15,6 +15,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { API_BASE, authenticatedFetch } from "@/lib/backend-api";
 
 export const Route = createFileRoute("/chat")({
   head: () => ({ meta: [{ title: "Chat nội bộ - WIS" }] }),
@@ -75,7 +76,6 @@ interface Message {
   updatedAt: string;
 }
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
 
 function resolveMediaUrl(url?: string) {
   if (!url) return "";
@@ -196,7 +196,7 @@ function ChatPage() {
         url: `${API_BASE}/api/chat/conversations`
       });
       
-      const response = await fetch(`${API_BASE}/api/chat/conversations`, {
+      const response = await authenticatedFetch(`${API_BASE}/api/chat/conversations`, {
         headers: {
           Authorization: `Bearer ${session?.token}`,
         },
@@ -238,7 +238,7 @@ function ChatPage() {
   const loadMessages = async (conversationId: string) => {
     try {
       setLoading(true);
-      const response = await fetch(
+      const response = await authenticatedFetch(
         `${API_BASE}/api/chat/conversations/${conversationId}/messages?limit=100`,
         {
           headers: {
@@ -275,7 +275,7 @@ function ChatPage() {
         formData.append('type', 'text');
       }
 
-      const response = await fetch(
+      const response = await authenticatedFetch(
         `${API_BASE}/api/chat/conversations/${selectedConv._id}/messages`,
         {
           method: "POST",
@@ -306,7 +306,7 @@ function ChatPage() {
 
   const markAsRead = async (conversationId: string) => {
     try {
-      await fetch(
+      await authenticatedFetch(
         `${API_BASE}/api/chat/conversations/${conversationId}/read`,
         {
           method: "POST",
@@ -422,7 +422,7 @@ function ChatPage() {
   // Load all users for creating new chats
   const loadAllUsers = async () => {
     try {
-      const response = await fetch(`${API_BASE}/api/chat/users`, {
+      const response = await authenticatedFetch(`${API_BASE}/api/chat/users`, {
         headers: {
           Authorization: `Bearer ${session?.token}`,
         },
@@ -454,7 +454,7 @@ function ChatPage() {
 
   const startDirectChat = async (otherUserId: string) => {
     try {
-      const response = await fetch(`${API_BASE}/api/chat/conversations/direct`, {
+      const response = await authenticatedFetch(`${API_BASE}/api/chat/conversations/direct`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${session?.token}`,
@@ -489,7 +489,7 @@ function ChatPage() {
     }
 
     try {
-      const response = await fetch(`${API_BASE}/api/chat/conversations/group`, {
+      const response = await authenticatedFetch(`${API_BASE}/api/chat/conversations/group`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${session?.token}`,
@@ -530,7 +530,7 @@ function ChatPage() {
   // Toggle reaction on message
   const toggleReaction = async (messageId: string, emoji: string) => {
     try {
-      const response = await fetch(
+      const response = await authenticatedFetch(
         `${API_BASE}/api/chat/messages/${messageId}/react`,
         {
           method: "POST",
@@ -878,7 +878,7 @@ function ChatPage() {
                       <div className={`flex gap-2 max-w-[70%] ${isMine ? "flex-row-reverse" : ""}`}>
                         {!isMine && (
                           <Avatar className="h-8 w-8">
-                            <AvatarImage src={isMine ? user.avatar : msg.sender.avatar} />
+                            <AvatarImage src={msg.sender.avatar} />
                             <AvatarFallback>
                               {getInitials(msg.sender.name)}
                             </AvatarFallback>

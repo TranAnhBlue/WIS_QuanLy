@@ -1,6 +1,6 @@
 // Authentication Context - MongoDB API version
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
-import type { Role, Permission } from "@/lib/permissions";
+import type { Role, Permission, Company, Department } from "@/lib/permissions";
 import { ROLE_HIERARCHY, PERMISSIONS } from "@/lib/permissions";
 
 // API Base URL - Backend Node.js API
@@ -11,8 +11,8 @@ interface User {
   email: string;
   name: string;
   role: Role;
-  company: string;
-  department: string;
+  company: Company;
+  department: Department;
   phone?: string;
   avatar?: string;
   joinDate: string;

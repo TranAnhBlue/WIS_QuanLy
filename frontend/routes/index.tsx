@@ -4,7 +4,7 @@ import {
   LayoutDashboard, MessagesSquare, Users, FileText, FileSignature, FolderKanban,
   BadgeCheck, GraduationCap, FlaskConical, Scale, Leaf, UserCog, Target,
   CheckCircle2, FileBox, Bell, Sparkles, Settings, Search, ChevronDown,
-  TrendingUp, TrendingDown, ArrowUpRight, AlertTriangle, Clock, Send,
+  TrendingUp, ArrowUpRight, AlertTriangle, Clock, Send,
   Building2, ChevronsLeft, Circle, Award, LogOut, User as UserIcon, Shield,
 } from "lucide-react";
 import { message } from "antd";
@@ -309,30 +309,8 @@ const REVENUE = [
   { company: "Line 3", value: 1120, delta: -3.2, trend: "down", desc: "VietGAP & du lịch" },
 ];
 
-const KPIS = [
-  { label: "Lead mới", value: 47, sub: "+12 tuần này", icon: TrendingUp, tone: "info" },
-  { label: "Khách hàng mới", value: 18, sub: "+5 tuần này", icon: Users, tone: "success" },
-  { label: "Hợp đồng ký", value: 9, sub: formatVND(1_840_000_000), icon: FileSignature, tone: "primary" },
-  { label: "Dự án đang chạy", value: 27, sub: "23 đúng tiến độ", icon: FolderKanban, tone: "info" },
-  { label: "Dự án quá hạn", value: 4, sub: "Cần xử lý gấp", icon: AlertTriangle, tone: "destructive" },
-  { label: "Task quá hạn", value: 8, sub: "Hôm nay", icon: Clock, tone: "warning" },
-];
-
-const PROJECTS = [
-  { code: "WC-2025-041", name: "ISO 9001 — Công ty TNHH Minh Phú", company: "Line 2", pm: "Nguyễn Văn A", progress: 78, status: "on-track", due: "12/07" },
-  { code: "WC-2025-038", name: "ISO 22000 — Vinamilk Tiên Sơn", company: "Line 2", pm: "Trần Thị B", progress: 45, status: "at-risk", due: "28/06" },
-  { code: "SC-2025-019", name: "Đào tạo Lead Auditor — Khóa 12", company: "Line 1", pm: "Lê Minh C", progress: 92, status: "on-track", due: "30/06" },
-  { code: "IC-2025-007", name: "VietGAP — HTX Nông sản Sơn La", company: "Line 3", pm: "Phạm Quốc D", progress: 22, status: "overdue", due: "20/06" },
-  { code: "WC-2025-035", name: "HACCP — Thủy sản Bình Định", company: "Line 2", pm: "Hoàng Thu E", progress: 64, status: "on-track", due: "05/08" },
-];
-
-const ACTIVITY = [
-  { time: "09:42", actor: "Nguyễn Văn A", action: "đã ký hợp đồng", target: "HĐ-2025-184", value: formatVND(285_000_000), tone: "success" },
-  { time: "09:18", actor: "Trần Thị B", action: "tạo báo giá mới", target: "BG-2025-072", value: null, tone: "info" },
-  { time: "08:55", actor: "Hệ thống", action: "cảnh báo dự án quá hạn", target: "IC-2025-007", value: null, tone: "destructive" },
-  { time: "08:30", actor: "Lê Minh C", action: "hoàn thành đánh giá GĐ1", target: "WC-2025-038", value: null, tone: "success" },
-  { time: "07:55", actor: "Phạm Quốc D", action: "yêu cầu duyệt chi phí", target: formatVND(12_500_000), value: null, tone: "warning" },
-];
+type DashboardProject = { id?: string; code: string; name: string; company: string; pm: string; progress: number; status: string; due: string };
+type DashboardActivity = { time: string; actor: string; action: string; target: string; value: string | null; tone: string };
 
 function DashboardPage() {
   const navigate = useNavigate();
@@ -342,7 +320,7 @@ function DashboardPage() {
   const [company, setCompany] = useState("group");
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
-  const [dashboard, setDashboard] = useState<{ users: number; attendanceToday: number; projects: number; resources: Record<string, number>; revenue: Record<string, number>; employeesByLine: Record<string, number>; projectRows: typeof PROJECTS; activities: typeof ACTIVITY } | null>(null);
+  const [dashboard, setDashboard] = useState<{ users: number; attendanceToday: number; projects: number; resources: Record<string, number>; revenue: Record<string, number>; employeesByLine: Record<string, number>; projectRows: DashboardProject[]; activities: DashboardActivity[] } | null>(null);
   const [vietnamClock, setVietnamClock] = useState<{ dateTime: string; greeting: string } | null>(null);
   const [assistantQuestion, setAssistantQuestion] = useState("");
   const [assistantLoading, setAssistantLoading] = useState(false);
@@ -441,7 +419,6 @@ function DashboardPage() {
   const liveRevenue = REVENUE.map((r) => ({
     ...r,
     value: dashboard?.revenue?.[r.company] || 0,
-    delta: 0,
     desc: `${r.desc} • ${dashboard?.employeesByLine?.[r.company] ?? 0} nhân sự`,
   }));
   const selectedLine = COMPANIES.find((item) => item.id === company)?.label;
@@ -580,11 +557,15 @@ function DashboardPage() {
                     const Icon = item.icon;
                     const isActive = active === item.id;
                     const routeMap: Record<string, string> = { 
+                      crm: "/crm",
                       chat: "/chat", 
                       notifications: "/notifications",
                       training: "/training", 
                       hrm: "/hr", 
+                      kpi: "/kpi",
                       rewards: "/reward", 
+                      approvals: "/approvals",
+                      documents: "/documents",
                       certifications: "/certifications", 
                       projects: "/projects", 
                       quotations: "/quotations", 
@@ -595,7 +576,7 @@ function DashboardPage() {
                       users: "/users",
                       attendance: "/attendance",
                       "attendance-management": "/attendance-management",
-                      settings: "/setup"
+                      settings: "/settings"
                     };
                     const to = routeMap[item.id];
                     const cls = `w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm transition relative ${
@@ -834,28 +815,12 @@ function DashboardPage() {
                       <span className="size-2 rounded-full" style={{ background: COMPANIES[companyIndex + 1].color }} />
                       <span className="text-sm font-medium">{r.company}</span>
                     </div>
-                    <span className={`flex items-center gap-1 text-xs font-mono px-2 py-0.5 rounded ${
-                      r.trend === "up" ? "text-success bg-success/10" : "text-destructive bg-destructive/10"
-                    }`}>
-                      {r.trend === "up" ? <TrendingUp className="size-3" /> : <TrendingDown className="size-3" />}
-                      {r.delta > 0 ? "+" : ""}{r.delta}%
-                    </span>
+                    <span className="text-[11px] text-muted-foreground px-2 py-0.5 rounded bg-muted">Dữ liệu hiện tại</span>
                   </div>
                   <div className="flex items-baseline gap-1.5">
                     <span className="font-display text-3xl font-semibold tabular-nums">{formatVND(r.value)}</span>
                   </div>
                   <div className="text-xs text-muted-foreground mt-2">{r.desc}</div>
-                  {/* Mini sparkline */}
-                  <svg viewBox="0 0 100 24" className="w-full h-6 mt-3" preserveAspectRatio="none">
-                    <polyline
-                      points={r.trend === "up"
-                        ? "0,20 12,18 24,16 36,14 48,12 60,10 72,7 84,5 100,3"
-                        : "0,8 12,10 24,9 36,13 48,12 60,15 72,14 84,18 100,20"}
-                      fill="none"
-                      stroke={COMPANIES[companyIndex + 1].color}
-                      strokeWidth="1.5"
-                    />
-                  </svg>
                 </div>
                 );
               })}

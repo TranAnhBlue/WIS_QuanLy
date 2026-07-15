@@ -12,6 +12,11 @@ import {
   FlaskConical,
   Leaf,
   Scale,
+  Target,
+  CheckCircle2,
+  FileBox,
+  Settings,
+  GraduationCap,
   UserRound,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -23,22 +28,35 @@ import { COMPANY_INFO, DEPARTMENT_INFO, type Company, type Department } from "@/
 export const Route = createFileRoute("/details/$module/$id")({
   head: ({ params }) => {
     const labels: Record<string, string> = {
+      crm: "Chi tiết khách hàng",
       notifications: "Chi tiết thông báo", projects: "Chi tiết dự án", contracts: "Chi tiết hợp đồng",
       quotations: "Chi tiết báo giá", certifications: "Chi tiết chứng chỉ", hr: "Chi tiết nhân sự",
       users: "Chi tiết người dùng", reward: "Chi tiết khen thưởng", attendance: "Chi tiết chấm công",
       "attendance-management": "Chi tiết chấm công",
       science: "Chi tiết nhiệm vụ KH", legal: "Chi tiết bảo hộ & pháp lý", vietgap: "Chi tiết VietGAP",
+      kpi: "Chi tiết KPI", approvals: "Chi tiết phê duyệt", documents: "Chi tiết tài liệu", settings: "Chi tiết thiết lập", training: "Chi tiết đào tạo",
     };
     return { meta: [{ title: `${labels[params.module] || "Chi tiết"} - WIS` }] };
   },
   component: ModuleDetailPage,
 });
 
-type DetailData = Record<string, unknown>;
+type DetailData = Record<string, any>;
 type Field = { key: string; label: string; kind?: "money" | "date" | "datetime" | "status" };
 type ModuleConfig = { label: string; back: string; icon: LucideIcon; fields: Field[] };
 
 const CONFIG: Record<string, ModuleConfig> = {
+  crm: {
+    label: "Khách hàng", back: "/crm", icon: UserRound,
+    fields: [
+      { key: "code", label: "Mã khách hàng" }, { key: "status", label: "Trạng thái", kind: "status" },
+      { key: "taxCode", label: "Mã số thuế" }, { key: "industry", label: "Lĩnh vực" },
+      { key: "contact", label: "Người liên hệ" }, { key: "phone", label: "Số điện thoại" },
+      { key: "email", label: "Email" }, { key: "line", label: "Line" },
+      { key: "owner", label: "Người phụ trách" }, { key: "address", label: "Địa chỉ" },
+      { key: "notes", label: "Ghi chú" },
+    ],
+  },
   notifications: {
     label: "Thông báo",
     back: "/notifications",
@@ -177,6 +195,26 @@ const CONFIG: Record<string, ModuleConfig> = {
       { key: "expiryDate", label: "Ngày hết hiệu lực", kind: "date" }, { key: "certificateNumber", label: "Số chứng nhận" },
     ],
   },
+  kpi: {
+    label: "KPI", back: "/kpi", icon: Target,
+    fields: [{ key: "code", label: "Mã KPI" }, { key: "status", label: "Trạng thái", kind: "status" }, { key: "owner", label: "Nhân sự phụ trách" }, { key: "department", label: "Phòng ban" }, { key: "line", label: "Line" }, { key: "period", label: "Kỳ đánh giá" }, { key: "target", label: "Mục tiêu" }, { key: "actual", label: "Thực hiện" }, { key: "progress", label: "Hoàn thành" }],
+  },
+  approvals: {
+    label: "Phê duyệt", back: "/approvals", icon: CheckCircle2,
+    fields: [{ key: "code", label: "Mã đề nghị" }, { key: "status", label: "Trạng thái", kind: "status" }, { key: "requester", label: "Người đề nghị" }, { key: "department", label: "Phòng ban" }, { key: "line", label: "Line" }, { key: "amount", label: "Giá trị", kind: "money" }, { key: "requestDate", label: "Ngày đề nghị", kind: "date" }, { key: "dueDate", label: "Hạn xử lý", kind: "date" }, { key: "decisionNote", label: "Ý kiến phê duyệt" }],
+  },
+  documents: {
+    label: "Tài liệu", back: "/documents", icon: FileBox,
+    fields: [{ key: "code", label: "Mã tài liệu" }, { key: "status", label: "Trạng thái", kind: "status" }, { key: "category", label: "Danh mục" }, { key: "owner", label: "Người quản lý" }, { key: "line", label: "Line" }, { key: "fileName", label: "Tên file" }, { key: "fileType", label: "Định dạng" }, { key: "fileSize", label: "Dung lượng" }],
+  },
+  settings: {
+    label: "Thiết lập", back: "/settings", icon: Settings,
+    fields: [{ key: "key", label: "Khóa cấu hình" }, { key: "label", label: "Tên hiển thị" }, { key: "value", label: "Giá trị" }, { key: "group", label: "Nhóm" }, { key: "status", label: "Trạng thái", kind: "status" }],
+  },
+  training: {
+    label: "Đào tạo", back: "/training", icon: GraduationCap,
+    fields: [{ key: "code", label: "Mã khóa học" }, { key: "status", label: "Trạng thái", kind: "status" }, { key: "category", label: "Loại khóa học" }, { key: "company", label: "Line" }, { key: "instructor", label: "Giảng viên" }, { key: "startDate", label: "Ngày bắt đầu", kind: "date" }, { key: "duration", label: "Thời lượng" }, { key: "capacity", label: "Sức chứa" }, { key: "enrolled", label: "Đã đăng ký" }, { key: "price", label: "Học phí" }],
+  },
 };
 
 function userFields(): Field[] {
@@ -237,8 +275,10 @@ function formatValue(module: string, field: Field, value: unknown) {
 
 async function fetchDetail(module: string, id: string) {
   const businessResources: Record<string, string> = {
+    crm: "customers",
     contracts: "contracts", quotations: "quotations", certifications: "certifications",
     science: "science-missions", legal: "legal-records", vietgap: "vietgap-records",
+    kpi: "kpis", approvals: "approvals", documents: "documents", settings: "settings", training: "trainings",
   };
   if (businessResources[module]) {
     return apiRequest<{ item: DetailData }>(`/api/business/${businessResources[module]}/${id}`).then((result) => result.item);
@@ -316,6 +356,8 @@ function DetailContent({ module, data, config }: { module: string; data: DetailD
     <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
       <div className="space-y-5">
         {description && <section className="rounded-xl border border-border bg-card p-5 sm:p-6"><h2 className="mb-3 font-semibold">Nội dung chi tiết</h2><p className="whitespace-pre-wrap text-sm leading-7 text-muted-foreground">{description}</p></section>}
+        {module === "training" && data.id && <a href={`/training/${data.id}`} className="inline-flex h-10 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground">Quản lý bài học và tài liệu</a>}
+        {module === "documents" && data.fileUrl && <a href={String(data.fileUrl)} target="_blank" rel="noreferrer" className="inline-flex h-10 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground">Mở tài liệu</a>}
         {(items.length > 0 || milestones.length > 0) && (
           <section className="overflow-hidden rounded-xl border border-border bg-card">
             <div className="border-b border-border px-5 py-4 font-semibold">{items.length ? "Hạng mục báo giá" : "Tiến độ thanh toán"}</div>
