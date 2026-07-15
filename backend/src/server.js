@@ -30,17 +30,38 @@ app.use(express.json());
 // Serve uploaded files statically
 app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 
-// MongoDB connect
-console.log("🔄 Connecting to MongoDB...");
-mongoose
-  .connect(process.env.MONGODB_URI)
-  .then(async () => {
-    console.log("✅ MongoDB Connected");
-    console.log("📊 Database:", mongoose.connection.name);
-    // Keep notification indexes aligned after schema changes.
-    await Notification.syncIndexes();
-  })
-  .catch((err) => console.error("❌ MongoDB Error:", err));
+// Reuse one connection promise per warm Vercel function. Every data request
+// waits for Atlas instead of reaching Mongoose's operation buffer on cold start.
+let mongoConnectionPromise;
+async function connectMongo() {
+  if (mongoose.connection.readyState === 1) return mongoose.connection;
+  if (!mongoConnectionPromise) {
+    console.log("Connecting to MongoDB...");
+    mongoConnectionPromise = mongoose
+      .connect(process.env.MONGODB_URI, { serverSelectionTimeoutMS: 20000, maxPoolSize: 10 })
+      .then(async () => {
+        console.log("MongoDB Connected:", mongoose.connection.name);
+        await Notification.syncIndexes();
+        return mongoose.connection;
+      })
+      .catch((error) => {
+        mongoConnectionPromise = undefined;
+        throw error;
+      });
+  }
+  return mongoConnectionPromise;
+}
+
+app.use(async (req, res, next) => {
+  if (req.method === "OPTIONS") return next();
+  try {
+    await connectMongo();
+    next();
+  } catch (error) {
+    console.error("MongoDB connection error:", error);
+    res.status(503).json({ success: false, message: "Không thể kết nối cơ sở dữ liệu" });
+  }
+});
 
 // Auth middleware
 const protect = async (req, res, next) => {
@@ -887,7 +908,7 @@ app.use((error, req, res, next) => {
 });
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
+if (!process.env.VERCEL) app.listen(PORT, () => {
   console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
   console.log("🚀 WIS QuanLy API Server (Simplified)");
   console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
@@ -900,3 +921,5 @@ app.listen(PORT, () => {
   console.log(`💬 Chat API: /api/chat/*`);
   console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 });
+
+export default app;
